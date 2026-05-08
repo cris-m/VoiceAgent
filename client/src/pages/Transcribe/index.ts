@@ -1,0 +1,1 @@
+export { TranscribePage } from './Transcribe';

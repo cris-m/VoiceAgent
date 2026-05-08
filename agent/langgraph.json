@@ -1,0 +1,15 @@
+{
+    "$schema": "https://langgra.ph/schema.json",
+    "dockerfile_lines": [],
+    "image_distro": "wolfi",
+    "api_version": "0.2",
+    "graphs": {
+        "voice_agent": "./assistant/graph.py:agent"
+    },
+    "env": ".env",
+    "python_version": "3.11",
+    "dependencies": [
+        ".",
+        "pyproject.toml"
+    ]
+}

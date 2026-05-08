@@ -1,0 +1,185 @@
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 60s
+  timeout: 10s
+  start_period: 180s
+  retries: 3
+
+x-base-service: &base-service
+  restart: unless-stopped
+  healthcheck:
+    <<: *healthcheck-defaults
+
+services:
+
+  client:
+    container_name: voiceagent-client-dev
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        NODE_ENV: development
+    expose:
+      - "3000"           # Vite dev server (internal only)
+      - "5173"           # Hot Module Replacement (internal only)
+    environment:
+      NODE_ENV: development
+      HMR_HOST: localhost
+      HMR_PORT: "8080"
+      HOST: "0.0.0.0"
+    env_file:
+      - ./client/.env
+    volumes:
+      - "./client:/app"
+      - "/app/node_modules"
+    networks:
+      - public-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
+      <<: *healthcheck-defaults
+
+  nginx:
+    container_name: voiceagent-nginx-dev
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+      args:
+        NODE_ENV: development
+    ports:
+      - "8080:80"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+    volumes:
+      # Live-edit nginx config without rebuilding the image in dev.
+      - ./nginx/config/nginx-dev.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/config/proxy.conf:/etc/nginx/proxy.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      agent:
+        condition: service_started
+    networks:
+      - public-network
+      - api-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/ || exit 1"]
+      <<: *healthcheck-defaults
+
+  backend:
+    container_name: voiceagent-backend-dev
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      ENVIRONMENT: development
+      DEBUG: "true"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-langgraph}:${POSTGRES_PASSWORD:-langgraph}@postgres:5432/${POSTGRES_DB:-langgraph}
+      DATABASE_AUTH_URL: postgresql+asyncpg://${POSTGRES_USER:-langgraph}:${POSTGRES_PASSWORD:-langgraph}@postgres:5432/${POSTGRES_DB:-langgraph}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - "./backend:/app"
+      - backend-cache:/home/appuser/.cache
+    networks:
+      - api-network
+      - private-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      agent:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/api/v1/health | grep -q '\"status\"' || exit 1"]
+      <<: *healthcheck-defaults
+
+  agent:
+    container_name: voiceagent-agent-dev
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    env_file:
+      - ./agent/.env
+    environment:
+      ENVIRONMENT: development
+      DEBUG: "true"
+      # langgraph-api reads these directly from env.
+      DATABASE_URI: postgresql://${POSTGRES_USER:-langgraph}:${POSTGRES_PASSWORD:-langgraph}@postgres:5432/${POSTGRES_DB:-langgraph}
+      REDIS_URI: redis://redis:6379
+    volumes:
+      - "./agent:/deps"
+    networks:
+      - api-network
+      - private-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    container_name: voiceagent-postgres-dev
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-voiceagent}"
+      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - private-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  redis:
+    container_name: voiceagent-redis-dev
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - private-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+networks:
+  public-network:
+    driver: bridge
+    name: voiceagent-public-dev
+
+  api-network:
+    driver: bridge
+    name: voiceagent-api-dev
+
+  private-network:
+    driver: bridge
+    name: voiceagent-private-dev
+
+volumes:
+  postgres-data:
+    name: voiceagent-postgres-data-dev
+
+  backend-cache:
+    name: voiceagent-backend-cache-dev

@@ -1,0 +1,78 @@
+# Root .dockerignore — applies to every COPY in any Dockerfile that uses
+# the project root as context (notably nginx/Dockerfile, which builds the
+# client). Without this, builds pull in .git, .venv, node_modules, model
+# caches, and — most importantly — .env files containing real secrets.
+
+# VCS / IDE
+.git
+.gitignore
+.github
+.gitattributes
+.idea
+.vscode
+*.swp
+*.swo
+.DS_Store
+
+# Secrets — never bake into images. Each service's Dockerfile copies its
+# own narrow context, but the nginx build context is the whole repo.
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Python caches / virtualenvs
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.venv
+**/venv
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.tox
+**/.coverage
+**/coverage.xml
+**/htmlcov
+**/.cache
+
+# Node / frontend
+**/node_modules
+**/dist
+**/build
+**/.vite
+**/.next
+**/.turbo
+**/.eslintcache
+**/yarn-error.log
+**/npm-debug.log
+
+# ML / audio model caches
+**/.cache/huggingface
+**/.cache/torch
+**/models
+**/voices
+*.safetensors
+*.onnx
+*.pt
+*.bin
+
+# Logs / runtime
+*.log
+logs
+
+# Documentation that shouldn't bloat images
+*.md
+!README.md
+
+# Test data
+tests
+**/tests
+test_*
+
+# Other infra
+docker-compose*.yml
+Makefile

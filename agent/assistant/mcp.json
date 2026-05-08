@@ -1,0 +1,16 @@
+{
+	"mcpServers": {
+		"time-mcp": {
+			"command": "uv",
+			"args": [
+				"--directory",
+				"./mcp/time_server",
+				"run",
+				"server.py",
+				"--timezone=UTC"
+			],
+			"env": {},
+			"type": "stdio"
+		}
+	}
+}
