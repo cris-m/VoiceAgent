@@ -1,7 +1,8 @@
-from fastapi import Depends, HTTPException, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from uuid import UUID
 from typing import Optional
+from uuid import UUID
+
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from services.auth import AuthService
 from services.token_blacklist import TokenBlacklistService

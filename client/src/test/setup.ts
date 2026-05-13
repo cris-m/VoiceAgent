@@ -151,7 +151,7 @@ vi.stubGlobal('URL', {
 // requestAnimationFrame / cancelAnimationFrame stubs
 // ---------------------------------------------------------------------------
 
-vi.stubGlobal('requestAnimationFrame', vi.fn((cb: FrameRequestCallback) => {
+vi.stubGlobal('requestAnimationFrame', vi.fn((_cb: FrameRequestCallback) => {
   // Don't auto-invoke — let tests control timing
   return 1;
 }));

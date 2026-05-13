@@ -2,9 +2,9 @@ from services.stt.base import (
     BaseSTT,
     BufferedBatchSession,
     PartialResult,
+    StreamingSession,
     STTConfig,
     STTResult,
-    StreamingSession,
     TranscriptEvent,
     TranscriptionSegment,
 )

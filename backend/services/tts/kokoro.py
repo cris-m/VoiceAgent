@@ -13,6 +13,7 @@ No voice cloning — use Pocket TTS (TTS_PROVIDER=pocket_tts) for that.
 Set TTS_PROVIDER=kokoro in .env to enable. Model files auto-download from
 HuggingFace on first use.
 """
+
 import asyncio
 from pathlib import Path
 from typing import AsyncIterator, List, Optional
@@ -22,15 +23,8 @@ import numpy as np
 from services.audio.base import AudioChunk
 from services.tts.base import BaseTTS, Language, TTSConfig, TTSResult, Voice
 
-
-DEFAULT_MODEL_URL = (
-    "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/"
-    "kokoro-v1.0.onnx"
-)
-DEFAULT_VOICES_URL = (
-    "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/"
-    "voices-v1.0.bin"
-)
+DEFAULT_MODEL_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx"
+DEFAULT_VOICES_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"
 
 DEFAULT_CACHE_DIR = Path.home() / ".cache" / "voiceagent" / "kokoro"
 DEFAULT_MODEL_FILENAME = "kokoro-v1.0.onnx"
@@ -43,30 +37,86 @@ DEFAULT_VOICES_FILENAME = "voices-v1.0.bin"
 # showcase the voice's actual texture and pace rather than just stating
 # the name.
 KOKORO_VOICES = [
-    Voice(id="af_heart",     name="Heart (F)",       language="en-us", gender="female",
-          description="Warm, expressive American",
-          metadata={"preview_text": "I'm Heart. Warm, expressive, the voice for stories that should feel like a hand on your shoulder — close, present, never rushed."}),
-    Voice(id="af_bella",     name="Bella (F)",       language="en-us", gender="female",
-          description="Bright, friendly American",
-          metadata={"preview_text": "I'm Bella. Bright, friendly, a little sparkly — the voice of every brand that wants to feel like a person, not a billboard."}),
-    Voice(id="af_nicole",    name="Nicole (F)",      language="en-us", gender="female",
-          description="Crisp, professional American",
-          metadata={"preview_text": "I'm Nicole. Crisp and professional, the voice your training video has been waiting for — clear when it has to be, human when it counts."}),
-    Voice(id="af_sarah",     name="Sarah (F)",       language="en-us", gender="female",
-          description="Natural, conversational American",
-          metadata={"preview_text": "Hey, I'm Sarah. Natural, conversational, the kind of voice that turns a script into a chat over coffee — easy, real, and never overdone."}),
-    Voice(id="am_adam",      name="Adam (M)",        language="en-us", gender="male",
-          description="Confident American",
-          metadata={"preview_text": "I'm Adam. Confident, direct, no wasted breath — when the line needs weight without theatrics, that's where I work best."}),
-    Voice(id="am_michael",   name="Michael (M)",     language="en-us", gender="male",
-          description="Neutral, broadcast American",
-          metadata={"preview_text": "Michael here. Clean, neutral, broadcast-ready — when the words have to do the work and the voice has to get out of the way, that's me."}),
-    Voice(id="bf_emma",      name="Emma (F, UK)",    language="en-gb", gender="female",
-          description="Refined British",
-          metadata={"preview_text": "I'm Emma. A British voice with a little warmth in the vowels — proper without being prim, polished without being cold."}),
-    Voice(id="bm_george",    name="George (M, UK)",  language="en-gb", gender="male",
-          description="Distinguished British",
-          metadata={"preview_text": "George here. There's a bit of an old library in my voice — measured, careful with every word, and quite at home reading you something worth listening to."}),
+    Voice(
+        id="af_heart",
+        name="Heart (F)",
+        language="en-us",
+        gender="female",
+        description="Warm, expressive American",
+        metadata={
+            "preview_text": "I'm Heart. Warm, expressive, the voice for stories that should feel like a hand on your shoulder — close, present, never rushed."
+        },
+    ),
+    Voice(
+        id="af_bella",
+        name="Bella (F)",
+        language="en-us",
+        gender="female",
+        description="Bright, friendly American",
+        metadata={
+            "preview_text": "I'm Bella. Bright, friendly, a little sparkly — the voice of every brand that wants to feel like a person, not a billboard."
+        },
+    ),
+    Voice(
+        id="af_nicole",
+        name="Nicole (F)",
+        language="en-us",
+        gender="female",
+        description="Crisp, professional American",
+        metadata={
+            "preview_text": "I'm Nicole. Crisp and professional, the voice your training video has been waiting for — clear when it has to be, human when it counts."
+        },
+    ),
+    Voice(
+        id="af_sarah",
+        name="Sarah (F)",
+        language="en-us",
+        gender="female",
+        description="Natural, conversational American",
+        metadata={
+            "preview_text": "Hey, I'm Sarah. Natural, conversational, the kind of voice that turns a script into a chat over coffee — easy, real, and never overdone."
+        },
+    ),
+    Voice(
+        id="am_adam",
+        name="Adam (M)",
+        language="en-us",
+        gender="male",
+        description="Confident American",
+        metadata={
+            "preview_text": "I'm Adam. Confident, direct, no wasted breath — when the line needs weight without theatrics, that's where I work best."
+        },
+    ),
+    Voice(
+        id="am_michael",
+        name="Michael (M)",
+        language="en-us",
+        gender="male",
+        description="Neutral, broadcast American",
+        metadata={
+            "preview_text": "Michael here. Clean, neutral, broadcast-ready — when the words have to do the work and the voice has to get out of the way, that's me."
+        },
+    ),
+    Voice(
+        id="bf_emma",
+        name="Emma (F, UK)",
+        language="en-gb",
+        gender="female",
+        description="Refined British",
+        metadata={
+            "preview_text": "I'm Emma. A British voice with a little warmth in the vowels — proper without being prim, polished without being cold."
+        },
+    ),
+    Voice(
+        id="bm_george",
+        name="George (M, UK)",
+        language="en-gb",
+        gender="male",
+        description="Distinguished British",
+        metadata={
+            "preview_text": "George here. There's a bit of an old library in my voice — measured, careful with every word, and quite at home reading you something worth listening to."
+        },
+    ),
 ]
 
 # Note: Kokoro-82M ships with 50+ voices across ja/zh/ko/fr/etc., but the
@@ -121,9 +171,7 @@ class KokoroTTS(BaseTTS):
             from kokoro_onnx import Kokoro  # type: ignore
         except ImportError:
             raise RuntimeError(
-                "kokoro-onnx package not installed. Add to pyproject.toml:\n"
-                "    kokoro-onnx>=0.4.0\n"
-                "Then run: uv sync"
+                "kokoro-onnx package not installed. Add to pyproject.toml:\n    kokoro-onnx>=0.4.0\nThen run: uv sync"
             )
 
         await self._ensure_model_files()
@@ -138,9 +186,7 @@ class KokoroTTS(BaseTTS):
             None,
             lambda: Kokoro(self._model_path, self._voices_path),
         )
-        self.logger.info(
-            f"Kokoro-82M ready with {len(KOKORO_VOICES)} preset voices"
-        )
+        self.logger.info(f"Kokoro-82M ready with {len(KOKORO_VOICES)} preset voices")
 
     async def _ensure_model_files(self) -> None:
         DEFAULT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -163,7 +209,7 @@ class KokoroTTS(BaseTTS):
                     with open(dest, "wb") as f:
                         async for chunk in response.aiter_bytes(chunk_size=1024 * 1024):
                             f.write(chunk)
-            self.logger.info(f"Saved to {dest} ({dest.stat().st_size // (1024*1024)} MB)")
+            self.logger.info(f"Saved to {dest} ({dest.stat().st_size // (1024 * 1024)} MB)")
 
         if not model_file.exists():
             await download(DEFAULT_MODEL_URL, model_file)
@@ -231,10 +277,7 @@ class KokoroTTS(BaseTTS):
             raise
         duration = len(samples) / sample_rate
 
-        self.logger.debug(
-            f"[Kokoro] synth '{text[:50]}...' → {duration:.2f}s audio "
-            f"@{sample_rate}Hz, voice={voice_id}"
-        )
+        self.logger.debug(f"[Kokoro] synth '{text[:50]}...' → {duration:.2f}s audio @{sample_rate}Hz, voice={voice_id}")
 
         return TTSResult(
             audio=samples,

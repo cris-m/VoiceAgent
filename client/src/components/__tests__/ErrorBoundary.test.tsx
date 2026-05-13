@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ErrorBoundary } from '../ErrorBoundary/ErrorBoundary';
@@ -8,6 +8,14 @@ const ThrowError = () => {
 };
 
 describe('ErrorBoundary', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('renders children when there is no error', () => {
     render(
       <ErrorBoundary>

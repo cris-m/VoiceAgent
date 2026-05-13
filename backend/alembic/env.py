@@ -1,8 +1,10 @@
-from logging.config import fileConfig
-from sqlalchemy import engine_from_config, pool
-from alembic import context
 import os
 import sys
+from logging.config import fileConfig
+
+from sqlalchemy import engine_from_config, pool
+
+from alembic import context
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -14,10 +16,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Use psycopg2 (sync driver) for migrations, not asyncpg
-sqlalchemy_url = os.getenv(
-    "DATABASE_AUTH_URL",
-    "postgresql+psycopg2://postgres@postgres:5432/voiceagent_auth"
-)
+sqlalchemy_url = os.getenv("DATABASE_AUTH_URL", "postgresql+psycopg2://postgres@postgres:5432/voiceagent_auth")
 
 if "asyncpg" in sqlalchemy_url:
     sqlalchemy_url = sqlalchemy_url.replace("+asyncpg", "+psycopg2")

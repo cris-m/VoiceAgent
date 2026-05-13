@@ -12,7 +12,11 @@ rate_limiter = InMemoryRateLimiter(
     window_seconds=settings.RATE_LIMIT_WINDOW_SECONDS,
 )
 
-TRUSTED_PROXIES = getattr(settings, 'TRUSTED_PROXIES', ['127.0.0.1', '::1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'])
+TRUSTED_PROXIES = getattr(
+    settings,
+    "TRUSTED_PROXIES",
+    ["127.0.0.1", "::1", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"],
+)
 
 
 def _is_trusted_proxy(ip: str) -> bool:

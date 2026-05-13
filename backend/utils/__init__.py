@@ -1,4 +1,4 @@
-from utils.logger import logger, get_logger, setup_logger
+from utils.logger import get_logger, logger, setup_logger
 
 __all__ = [
     "logger",

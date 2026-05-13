@@ -1,8 +1,8 @@
 from typing import Dict, List, Optional
-from fastapi import FastAPI, Request, HTTPException
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-
 
 _STATUS_CODES = {
     400: "BAD_REQUEST",

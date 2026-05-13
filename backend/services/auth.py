@@ -1,9 +1,9 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
-import jwt
 import bcrypt
+import jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -78,32 +78,22 @@ class AuthService:
             return None
 
     @staticmethod
-    async def get_user_by_username(
-        session: AsyncSession, username: str
-    ) -> Optional[User]:
-        result = await session.execute(
-            select(User).where(User.username == username).where(User.is_active == True)
-        )
+    async def get_user_by_username(session: AsyncSession, username: str) -> Optional[User]:
+        result = await session.execute(select(User).where(User.username == username).where(User.is_active.is_(True)))
         return result.scalars().first()
 
     @staticmethod
     async def get_user_by_email(session: AsyncSession, email: str) -> Optional[User]:
-        result = await session.execute(
-            select(User).where(User.email == email).where(User.is_active == True)
-        )
+        result = await session.execute(select(User).where(User.email == email).where(User.is_active.is_(True)))
         return result.scalars().first()
 
     @staticmethod
     async def get_user_by_id(session: AsyncSession, user_id: UUID) -> Optional[User]:
-        result = await session.execute(
-            select(User).where(User.user_id == user_id).where(User.is_active == True)
-        )
+        result = await session.execute(select(User).where(User.user_id == user_id).where(User.is_active.is_(True)))
         return result.scalars().first()
 
     @staticmethod
-    async def create_user(
-        session: AsyncSession, username: str, email: str, password: str
-    ) -> User:
+    async def create_user(session: AsyncSession, username: str, email: str, password: str) -> User:
         hashed_password = AuthService.hash_password(password)
         user = User(
             username=username,
@@ -121,9 +111,7 @@ class AuthService:
         await TokenBlacklistService.add_to_blacklist(jti, expires_at)
 
     @staticmethod
-    async def authenticate_user(
-        session: AsyncSession, username: str, password: str
-    ) -> Optional[User]:
+    async def authenticate_user(session: AsyncSession, username: str, password: str) -> Optional[User]:
         """Authenticate user with username and password.
 
         Always performs password verification (even for non-existent users)

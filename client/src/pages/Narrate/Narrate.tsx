@@ -10,7 +10,16 @@ import { AudioWaveform } from '@components/ui';
 export function NarratePage() {
   const navigate = useNavigate();
   const narrate = useNarrate();
-  const audio = useAudioPlayer();
+  const {
+    audioRef,
+    setAudioRef,
+    progress,
+    currentTime,
+    isPlaying,
+    activeId,
+    handlePlayPause,
+    handleProgressClick,
+  } = useAudioPlayer();
   const clone = useVoiceClone();
   const [deletingVoiceId, setDeletingVoiceId] = useState<string | null>(null);
   const [deletingAudioId, setDeletingAudioId] = useState<string | null>(null);
@@ -165,7 +174,7 @@ export function NarratePage() {
                 listeners never attached — so the time display stayed
                 frozen and play state was out of sync. Always-mount fixes
                 both. */}
-            <audio ref={audio.setAudioRef} className="hidden" preload="none" />
+            <audio ref={setAudioRef} className="hidden" preload="none" />
 
             {narrate.generatedAudios.length > 0 && (
               <div className="mt-10">
@@ -178,13 +187,13 @@ export function NarratePage() {
 
                 <div className="border border-[color:var(--color-border)] rounded-md divide-y divide-[color:var(--color-border)] overflow-hidden">
                   {narrate.generatedAudios.map((audioData) => {
-                    const isActive = audioData.id === audio.activeId;
-                    const playing = isActive && audio.isPlaying;
+                    const isActive = audioData.id === activeId;
+                    const playing = isActive && isPlaying;
                     const isCopied = narrate.copiedId === audioData.id;
                     return (
                       <div key={audioData.id} className={`${isActive ? 'bg-[color:var(--color-accent-muted)]' : 'bg-[color:var(--color-surface-raised)] hover:bg-[color:var(--color-surface-overlay)]'}`}>
                         <div className="flex items-center gap-3 px-4 py-2.5">
-                          <button onClick={(e) => { e.stopPropagation(); audio.handlePlayPause(audioData.id, audioData.audioUrl); }} className={`w-7 h-7 rounded-md shrink-0 flex items-center justify-center transition-colors ${playing ? 'bg-[color:var(--color-accent)] text-white' : 'bg-[color:var(--color-surface-overlay)] text-[color:var(--color-fg-muted)] hover:bg-[color:var(--color-border)]'}`}>
+                          <button onClick={(e) => { e.stopPropagation(); handlePlayPause(audioData.id, audioData.audioUrl); }} className={`w-7 h-7 rounded-md shrink-0 flex items-center justify-center transition-colors ${playing ? 'bg-[color:var(--color-accent)] text-white' : 'bg-[color:var(--color-surface-overlay)] text-[color:var(--color-fg-muted)] hover:bg-[color:var(--color-border)]'}`}>
                             {playing ? <Pause className="w-3 h-3" fill="white" /> : <Play className="w-3 h-3 ml-0.5" />}
                           </button>
                           <div className="flex-1 min-w-0">
@@ -210,12 +219,12 @@ export function NarratePage() {
                         {isActive && (
                           <div className="px-4 pb-3">
                             <div className="flex items-center gap-2.5">
-                              <span className={`text-[10px] font-mono tabular-nums ${playing ? 'text-[color:var(--color-fg-secondary)]' : 'text-[color:var(--color-fg-muted)]'}`}>{formatTime(audio.currentTime)}</span>
+                              <span className={`text-[10px] font-mono tabular-nums ${playing ? 'text-[color:var(--color-fg-secondary)]' : 'text-[color:var(--color-fg-muted)]'}`}>{formatTime(currentTime)}</span>
                               <AudioWaveform
-                                audioRef={audio.audioRef}
+                                audioRef={audioRef}
                                 isPlaying={playing}
-                                progress={audio.progress}
-                                onSeek={(e) => { e.stopPropagation(); audio.handleProgressClick(e); }}
+                                progress={progress}
+                                onSeek={(e) => { e.stopPropagation(); handleProgressClick(e); }}
                               />
                               <span className="text-[10px] font-mono tabular-nums text-[color:var(--color-fg-muted)]">{formatTime(audioData.duration)}</span>
                             </div>

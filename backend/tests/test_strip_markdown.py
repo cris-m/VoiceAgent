@@ -1,5 +1,3 @@
-import pytest
-
 # Import only the pure function, not the route module so we avoid
 # triggering model-loading side-effects at import time.
 from api.routes.v1.voice import _strip_markdown

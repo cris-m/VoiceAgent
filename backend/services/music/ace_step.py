@@ -1,7 +1,9 @@
 import asyncio
+
 import numpy as np
-from services.music.base import BaseMusicService
+
 from config.settings import get_settings
+from services.music.base import BaseMusicService
 from utils import get_logger
 
 logger = get_logger(__name__)
@@ -27,14 +29,11 @@ class MusicGenService(BaseMusicService):
             loop = asyncio.get_event_loop()
             self.logger.info("Loading MusicGen-small model...")
             self._pipeline = await loop.run_in_executor(
-                None,
-                lambda: pipeline("text-to-audio", model="facebook/musicgen-small", device="cpu")
+                None, lambda: pipeline("text-to-audio", model="facebook/musicgen-small", device="cpu")
             )
             self.logger.info("MusicGen music service ready")
         except ImportError:
-            self.logger.info(
-                "transformers package not installed. Install with: pip install transformers torch"
-            )
+            self.logger.info("transformers package not installed. Install with: pip install transformers torch")
             self._use_mock = True
         except Exception as e:
             self.logger.warning(f"Failed to load MusicGen: {e}. Using mock generator.")
@@ -47,9 +46,7 @@ class MusicGenService(BaseMusicService):
         self, prompt: str, style_tags: list[str], duration: float, tempo: int | None, seed: int | None
     ) -> tuple[np.ndarray, int]:
         if self._pipeline is None and not self._use_mock:
-            raise RuntimeError(
-                "Music generation unavailable. Install dependencies: pip install transformers torch"
-            )
+            raise RuntimeError("Music generation unavailable. Install dependencies: pip install transformers torch")
 
         duration = min(duration, 180.0)  # Cap at 3 minutes
         full_prompt = " ".join(style_tags + [prompt]).strip()
@@ -73,7 +70,7 @@ class MusicGenService(BaseMusicService):
                     "do_sample": True,
                     "top_k": 250,
                     "temperature": 1.0,
-                }
+                },
             )
             audio_array = np.array(result["audio"], dtype=np.float32)
             if audio_array.ndim > 1:

@@ -5,19 +5,19 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from services.agent import get_agent_client
-from services.agent.models import (
-    ThreadCreate,
-    ThreadResponse,
-    ThreadState,
-    ChatRequest,
-    AssistantInfo,
-    ThreadMetadataUpdate,
-)
-from utils import get_logger
-from api.dependency import verify_api_key, check_rate_limit
+from api.dependency import check_rate_limit, verify_api_key
 from api.dependency.auth import get_current_user_id
 from api.dependency.security import safe_chat_message
+from services.agent import get_agent_client
+from services.agent.models import (
+    AssistantInfo,
+    ChatRequest,
+    ThreadCreate,
+    ThreadMetadataUpdate,
+    ThreadResponse,
+    ThreadState,
+)
+from utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -33,6 +33,7 @@ def _handle_agent_error(e: Exception, resource_name: str = "resource") -> HTTPEx
 
     logger.error(f"Unexpected error: {e}")
     return HTTPException(status_code=500, detail="Internal server error")
+
 
 router = APIRouter(
     prefix="/agent",

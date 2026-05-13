@@ -1,13 +1,15 @@
 import io
 import wave
-import numpy as np
 from uuid import UUID
+
+import numpy as np
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
+
+from api.dependency.auth import get_current_user_id
 from schemas.music import MusicGenerateRequest
 from services.music.ace_step import get_music_service
-from api.dependency.auth import get_current_user_id
-from utils.file_storage import save_audio_file, list_files, delete_file
+from utils.file_storage import delete_file, list_files, save_audio_file
 
 router = APIRouter(prefix="/music")
 

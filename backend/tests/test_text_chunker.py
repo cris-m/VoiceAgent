@@ -1,5 +1,3 @@
-import pytest
-
 from services.tts.text_chunker import TextChunker
 
 
@@ -71,9 +69,7 @@ class TestSplitsAtSentenceBoundaries:
         text = " ".join(sentences)
         chunks = chunker.chunk_by_sentences(text)
         for i, chunk in enumerate(chunks):
-            assert len(chunk) <= 80, (
-                f"Chunk {i} exceeds max_chunk_size: {len(chunk)} chars — '{chunk[:40]}'"
-            )
+            assert len(chunk) <= 80, f"Chunk {i} exceeds max_chunk_size: {len(chunk)} chars — '{chunk[:40]}'"
 
 
 class TestAbbreviationHandling:

@@ -1,7 +1,8 @@
-import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock
 
-from services.tts.base import BaseTTS, TTSConfig, Voice, Language
+import pytest
+
+from services.tts.base import BaseTTS, TTSConfig
 from services.tts.kokoro import KokoroTTS
 from services.tts.pocket_tts import PocketTTS
 
@@ -118,16 +119,18 @@ class TestVoicePipelineSynthKwargsGating:
     async def test_pipeline_passes_kwargs_through_to_tts(self):
         # Pipeline is a thin pass-through; gating speed/language by capability
         # is the route's responsibility (tts_streamer in voice.py), not pipeline's.
-        from services.voice_pipeline import VoicePipeline
         from services.vad.silero import SileroVAD, VADConfig
+        from services.voice_pipeline import VoicePipeline
 
         tts = StubTTS("stub")
         captured_kwargs = {}
 
         async def fake_synthesize_stream(text, voice=None, **kwargs):
             captured_kwargs.update(kwargs)
-            from services.audio.base import AudioChunk
             import numpy as np
+
+            from services.audio.base import AudioChunk
+
             yield AudioChunk(data=np.zeros(100, dtype=np.float32), sample_rate=16000)
 
         tts.synthesize_stream = fake_synthesize_stream
@@ -160,10 +163,11 @@ class TestVoicePipelineSynthKwargsGating:
 
     @pytest.mark.asyncio
     async def test_synthesize_stream_yields_audio_info_then_audio(self):
-        from services.voice_pipeline import VoicePipeline
-        from services.vad.silero import SileroVAD, VADConfig
-        from services.audio.base import AudioChunk
         import numpy as np
+
+        from services.audio.base import AudioChunk
+        from services.vad.silero import SileroVAD, VADConfig
+        from services.voice_pipeline import VoicePipeline
 
         tts = StubTTS("stub")
 
@@ -190,8 +194,9 @@ class TestVoicePipelineSynthKwargsGating:
 
 class TestVoiceCloningSupportFlag:
     def test_pipeline_delegates_supports_voice_cloning_to_tts(self):
-        from services.voice_pipeline import VoicePipeline
         from unittest.mock import MagicMock
+
+        from services.voice_pipeline import VoicePipeline
 
         tts_with_cloning = MagicMock()
         tts_with_cloning.supports_voice_cloning = True

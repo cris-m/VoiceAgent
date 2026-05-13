@@ -9,7 +9,7 @@
  *  - Use a real Redux store so setMessages / dispatch interactions are verified
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { configureStore } from '@reduxjs/toolkit';
 import { Provider } from 'react-redux';
@@ -344,16 +344,20 @@ describe('useChat – connection state', () => {
     useStreamMock.mockReturnValue({ ...mockStreamState });
   });
 
-  it('starts with isLoading = false', () => {
+  it('starts with isLoading = false', async () => {
     const store = makeStore('tok');
     const { result } = renderHook(() => useChat(), { wrapper: makeWrapper(store) });
-    expect(result.current.isLoading).toBe(false);
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
   });
 
-  it('exposes a sendMessage function', () => {
+  it('exposes a sendMessage function', async () => {
     const store = makeStore('tok');
     const { result } = renderHook(() => useChat(), { wrapper: makeWrapper(store) });
-    expect(typeof result.current.sendMessage).toBe('function');
+    await waitFor(() => {
+      expect(typeof result.current.sendMessage).toBe('function');
+    });
   });
 
   it('exposes currentThread as null initially', async () => {
@@ -378,7 +382,7 @@ describe('useChat – message processing', () => {
     mockClient.threads.get.mockResolvedValue(mockThreads[0]);
   });
 
-  it('maps human messages to role=user', () => {
+  it('maps human messages to role=user', async () => {
     const humanMsg: MockMessage = { id: 'h1', type: 'human', content: 'Hello' };
     mockStreamState.messages = [humanMsg];
     useStreamMock.mockReturnValue({ ...mockStreamState });
@@ -386,11 +390,13 @@ describe('useChat – message processing', () => {
     const store = makeStore('tok');
     const { result } = renderHook(() => useChat(), { wrapper: makeWrapper(store) });
 
-    expect(result.current.messages[0]?.role).toBe('user');
-    expect(result.current.messages[0]?.content).toBe('Hello');
+    await waitFor(() => {
+      expect(result.current.messages[0]?.role).toBe('user');
+      expect(result.current.messages[0]?.content).toBe('Hello');
+    });
   });
 
-  it('maps ai messages to role=assistant', () => {
+  it('maps ai messages to role=assistant', async () => {
     const aiMsg: MockMessage = { id: 'a1', type: 'ai', content: 'World' };
     mockStreamState.messages = [aiMsg];
     useStreamMock.mockReturnValue({ ...mockStreamState });
@@ -398,10 +404,12 @@ describe('useChat – message processing', () => {
     const store = makeStore('tok');
     const { result } = renderHook(() => useChat(), { wrapper: makeWrapper(store) });
 
-    expect(result.current.messages[0]?.role).toBe('assistant');
+    await waitFor(() => {
+      expect(result.current.messages[0]?.role).toBe('assistant');
+    });
   });
 
-  it('filters out tool messages from the displayed list', () => {
+  it('filters out tool messages from the displayed list', async () => {
     const toolMsg: MockMessage = {
       id: 't1',
       type: 'tool',
@@ -414,10 +422,12 @@ describe('useChat – message processing', () => {
     const store = makeStore('tok');
     const { result } = renderHook(() => useChat(), { wrapper: makeWrapper(store) });
 
-    expect(result.current.messages).toHaveLength(0);
+    await waitFor(() => {
+      expect(result.current.messages).toHaveLength(0);
+    });
   });
 
-  it('filters out empty ai messages that have no tool calls', () => {
+  it('filters out empty ai messages that have no tool calls', async () => {
     const emptyAi: MockMessage = { id: 'a-empty', type: 'ai', content: '' };
     mockStreamState.messages = [emptyAi];
     useStreamMock.mockReturnValue({ ...mockStreamState });
@@ -425,10 +435,12 @@ describe('useChat – message processing', () => {
     const store = makeStore('tok');
     const { result } = renderHook(() => useChat(), { wrapper: makeWrapper(store) });
 
-    expect(result.current.messages).toHaveLength(0);
+    await waitFor(() => {
+      expect(result.current.messages).toHaveLength(0);
+    });
   });
 
-  it('dispatches setMessages to Redux when messages change', () => {
+  it('dispatches setMessages to Redux when messages change', async () => {
     const humanMsg: MockMessage = { id: 'h1', type: 'human', content: 'Ping' };
     mockStreamState.messages = [humanMsg];
     useStreamMock.mockReturnValue({ ...mockStreamState });
@@ -436,8 +448,10 @@ describe('useChat – message processing', () => {
     const store = makeStore('tok');
     renderHook(() => useChat(), { wrapper: makeWrapper(store) });
 
-    const state = store.getState() as { voiceAgent: { messages: unknown[] } };
-    expect(state.voiceAgent.messages).toHaveLength(1);
+    await waitFor(() => {
+      const state = store.getState() as { voiceAgent: { messages: unknown[] } };
+      expect(state.voiceAgent.messages).toHaveLength(1);
+    });
   });
 });
 
@@ -520,14 +534,16 @@ describe('useChat – sendMessage', () => {
 // ---------------------------------------------------------------------------
 
 describe('useChat – error handling', () => {
-  it('exposes stream.error as error property', () => {
+  it('exposes stream.error as error property', async () => {
     const testError = new Error('Stream failure');
     useStreamMock.mockReturnValue({ ...mockStreamState, error: testError });
 
     const store = makeStore('tok');
     const { result } = renderHook(() => useChat(), { wrapper: makeWrapper(store) });
 
-    expect(result.current.error).toBe(testError);
+    await waitFor(() => {
+      expect(result.current.error).toBe(testError);
+    });
   });
 
 });

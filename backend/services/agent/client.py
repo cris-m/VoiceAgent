@@ -1,17 +1,17 @@
 import asyncio
-from typing import AsyncIterator, Optional, Any
+from typing import Any, AsyncIterator, Optional
 
 from langgraph_sdk import get_client
 from langgraph_sdk.client import LangGraphClient
 
 from config.settings import get_settings
-from services.base import BaseService
 from services.agent.models import (
+    AssistantInfo,
+    StreamEvent,
     ThreadResponse,
     ThreadState,
-    StreamEvent,
-    AssistantInfo,
 )
+from services.base import BaseService
 
 
 class AgentClient(BaseService):
@@ -195,9 +195,7 @@ class AgentClient(BaseService):
         if not assistant:
             raise ValueError("No assistant available")
 
-        input_data = {
-            "messages": [{"role": "human", "content": message}]
-        }
+        input_data = {"messages": [{"role": "human", "content": message}]}
 
         # LangGraph 0.6+ rejects sending both `configurable` and `context` together —
         # `context` is the canonical successor. Pass mode + user_id via context only.
@@ -225,7 +223,7 @@ class AgentClient(BaseService):
                         if msg.get("type") == "ai":
                             full_content = msg.get("content", "")
                             if full_content and len(full_content) > len(previous_content):
-                                delta = full_content[len(previous_content):]
+                                delta = full_content[len(previous_content) :]
                                 previous_content = full_content
                                 if delta:
                                     yield {"type": "token", "content": delta}
@@ -277,9 +275,7 @@ class AgentClient(BaseService):
         if not assistant:
             raise ValueError("No assistant available")
 
-        input_data = {
-            "messages": [{"role": "human", "content": message}]
-        }
+        input_data = {"messages": [{"role": "human", "content": message}]}
 
         # LangGraph 0.6+ uses `context` instead of `configurable`.
         context = {"mode": mode, "user_id": user_id or "unknown"}

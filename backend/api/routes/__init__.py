@@ -1,5 +1,7 @@
-from fastapi import FastAPI
 from typing import List, Tuple
+
+from fastapi import FastAPI
+
 from utils import logger
 
 
@@ -21,18 +23,11 @@ def register_routers(app: FastAPI, prefix: str = "/api/v1") -> None:
             continue
 
         try:
-            module = __import__(
-                f"api.routes.v1.{module_name}",
-                fromlist=["router"]
-            )
+            module = __import__(f"api.routes.v1.{module_name}", fromlist=["router"])
 
             if hasattr(module, "router"):
                 router = getattr(module, "router")
-                app.include_router(
-                    router,
-                    prefix=f"{prefix}{router_prefix}",
-                    tags=tags
-                )
+                app.include_router(router, prefix=f"{prefix}{router_prefix}", tags=tags)
                 registered_count += 1
                 logger.info(f"Registered router: {prefix}{router_prefix}")
 

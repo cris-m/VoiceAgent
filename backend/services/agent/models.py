@@ -1,6 +1,7 @@
-from typing import Any, Optional, Literal
-from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import Any, Literal, Optional
+
+from pydantic import BaseModel, Field
 
 
 class MessageInput(BaseModel):

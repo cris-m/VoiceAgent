@@ -1,31 +1,31 @@
-import pytest
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from uuid import uuid4
-from datetime import datetime, timedelta
-import asyncio
-from unittest.mock import AsyncMock, patch, MagicMock, Mock
 
-patcher_rate_limiter = patch(
-    "api.dependency.rate_limiter.is_allowed",
-    new=AsyncMock(return_value=True)
-)
+import pytest
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+patcher_rate_limiter = patch("api.dependency.rate_limiter.is_allowed", new=AsyncMock(return_value=True))
 patcher_rate_limiter.start()
 
 mock_redis = AsyncMock()
 _redis_store: set = set()
 
+
 async def _redis_setex(key, ttl, value):
     _redis_store.add(str(key))
     return True
 
+
 async def _redis_exists(key):
     return 1 if str(key) in _redis_store else 0
+
 
 async def _redis_sadd(key, *members):
     for m in members:
         _redis_store.add(str(m))
     return len(members)
+
 
 async def _redis_delete(*keys):
     removed = 0
@@ -34,6 +34,7 @@ async def _redis_delete(*keys):
             _redis_store.discard(str(k))
             removed += 1
     return removed
+
 
 mock_redis.setex = AsyncMock(side_effect=_redis_setex)
 mock_redis.sadd = AsyncMock(side_effect=_redis_sadd)
@@ -48,17 +49,17 @@ patcher_close_redis = patch("config.redis.close_redis")
 mock_get_redis = patcher_get_redis.start()
 mock_close_redis = patcher_close_redis.start()
 
+
 async def async_return_redis():
     return mock_redis
+
 
 mock_get_redis.side_effect = async_return_redis
 mock_close_redis.return_value = None
 
-from main import app
 from config.database import get_db
-from config.settings import settings
-from models.user import Base, User
-from services.auth import AuthService
+from main import app
+from models.user import Base
 
 
 @pytest.fixture
@@ -72,11 +73,7 @@ async def test_db_engine():
 
 @pytest.fixture
 async def test_db_session(test_db_engine):
-    SessionLocal = async_sessionmaker(
-        test_db_engine,
-        class_=AsyncSession,
-        expire_on_commit=False
-    )
+    SessionLocal = async_sessionmaker(test_db_engine, class_=AsyncSession, expire_on_commit=False)
 
     async def override_get_db():
         async with SessionLocal() as session:
@@ -99,7 +96,7 @@ def test_user():
     return {
         "username": f"testuser_{uuid4().hex[:6]}",
         "email": f"test_{uuid4().hex[:6]}@example.com",
-        "password": "SecurePass123"
+        "password": "SecurePass123",
     }
 
 
@@ -108,7 +105,7 @@ def test_user_2():
     return {
         "username": f"user2_{uuid4().hex[:6]}",
         "email": f"user2_{uuid4().hex[:6]}@example.com",
-        "password": "SecurePass456"
+        "password": "SecurePass456",
     }
 
 
@@ -117,7 +114,7 @@ def test_user_3():
     return {
         "username": f"user3_{uuid4().hex[:6]}",
         "email": f"user3_{uuid4().hex[:6]}@example.com",
-        "password": "SecurePass789"
+        "password": "SecurePass789",
     }
 
 
@@ -126,12 +123,7 @@ async def authenticated_user(async_client, test_user):
     response = await async_client.post("/api/v1/auth/register", json=test_user)
     assert response.status_code == 201, f"Registration failed: {response.text}"
     data = response.json()
-    return {
-        "user": test_user,
-        "token": data["access_token"],
-        "user_id": data["user_id"],
-        "username": data["username"]
-    }
+    return {"user": test_user, "token": data["access_token"], "user_id": data["user_id"], "username": data["username"]}
 
 
 @pytest.fixture
@@ -154,6 +146,7 @@ async def auth_user(async_client):
 @pytest.fixture
 def client(test_db_session):
     from fastapi.testclient import TestClient
+
     return TestClient(app)
 
 
@@ -168,9 +161,10 @@ def test_user_data():
 
 @pytest.fixture
 def mock_voice_pipeline():
-    from services.voice_pipeline import VoicePipeline
-    from services.tts.base import TTSResult, Voice
     import numpy as np
+
+    from services.tts.base import TTSResult, Voice
+    from services.voice_pipeline import VoicePipeline
 
     pipeline = Mock(spec=VoicePipeline)
     pipeline.is_initialized = True
@@ -185,8 +179,7 @@ def mock_voice_pipeline():
     tts.default_voice = "alba"
 
     default_voice = Voice(
-        id="alba", name="Alba (F)", language="en", gender="female",
-        description="Test voice", metadata={}
+        id="alba", name="Alba (F)", language="en", gender="female", description="Test voice", metadata={}
     )
 
     tts.get_voices = AsyncMock(return_value=[default_voice])
@@ -195,25 +188,30 @@ def mock_voice_pipeline():
     tts.get_cloned_voices = AsyncMock(return_value=[])
 
     fake_audio = np.zeros(16000, dtype=np.float32)
-    tts.synthesize = AsyncMock(return_value=TTSResult(
-        audio=fake_audio,
-        sample_rate=16000,
-        duration=1.0,
-        text="hello",
-        voice="alba",
-    ))
+    tts.synthesize = AsyncMock(
+        return_value=TTSResult(
+            audio=fake_audio,
+            sample_rate=16000,
+            duration=1.0,
+            text="hello",
+            voice="alba",
+        )
+    )
 
     pipeline.tts = tts
 
     from services.stt.base import STTResult
+
     stt = MagicMock()
     stt.supports_streaming = False
-    stt.transcribe = AsyncMock(return_value=STTResult(
-        text="hello world",
-        segments=[],
-        language="en",
-        duration=1.0,
-    ))
+    stt.transcribe = AsyncMock(
+        return_value=STTResult(
+            text="hello world",
+            segments=[],
+            language="en",
+            duration=1.0,
+        )
+    )
     pipeline.stt = stt
 
     pipeline.initialize = AsyncMock()
@@ -221,6 +219,7 @@ def mock_voice_pipeline():
     pipeline.get_aec_state = MagicMock(return_value="idle")
 
     from services.stt.base import StreamingSession
+
     fake_session = MagicMock(spec=StreamingSession)
     fake_session.send_audio = AsyncMock()
     fake_session.close = AsyncMock()
@@ -241,6 +240,7 @@ def mock_voice_pipeline():
     pipeline.is_ai_speaking = MagicMock(return_value=False)
     pipeline.get_vad_state = MagicMock()
     from services.vad.silero import VADState
+
     pipeline.get_vad_state.return_value = VADState.SILENCE
     pipeline.process_audio_chunk = MagicMock(return_value=(None, False))
     pipeline.get_speech_probability = MagicMock(return_value=0.0)
@@ -256,6 +256,7 @@ def mock_agent_client():
     agent.is_ready = True
 
     from services.agent.models import ThreadResponse
+
     fake_thread = ThreadResponse(
         thread_id="thread_test_001",
         created_at="2026-01-01T00:00:00Z",

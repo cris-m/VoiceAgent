@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
 import type { RootState } from '@/store/store';
 import authReducer, { setAuth, logout } from '@/features/auth/slice';

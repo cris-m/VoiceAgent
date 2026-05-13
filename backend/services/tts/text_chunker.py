@@ -1,4 +1,3 @@
-import re
 from typing import List
 
 from utils import get_logger
@@ -6,9 +5,31 @@ from utils import get_logger
 logger = get_logger(__name__)
 
 _ABBREVIATIONS = {
-    "mr", "mrs", "ms", "dr", "sr", "jr", "st", "vs", "etc",
-    "i.e", "e.g", "u.s", "u.k", "a.m", "p.m", "no",
-    "prof", "Rev", "Gen", "col", "maj", "capt", "inc", "ltd", "co",
+    "mr",
+    "mrs",
+    "ms",
+    "dr",
+    "sr",
+    "jr",
+    "st",
+    "vs",
+    "etc",
+    "i.e",
+    "e.g",
+    "u.s",
+    "u.k",
+    "a.m",
+    "p.m",
+    "no",
+    "prof",
+    "Rev",
+    "Gen",
+    "col",
+    "maj",
+    "capt",
+    "inc",
+    "ltd",
+    "co",
 }
 
 
@@ -24,7 +45,7 @@ class TextChunker:
         self.max_chunk_size = max_chunk_size
 
     def _extract_sentences(self, text: str) -> List[str]:
-        paragraphs = text.split('\n\n')
+        paragraphs = text.split("\n\n")
 
         all_sentences = []
         for para in paragraphs:
@@ -45,21 +66,21 @@ class TextChunker:
             char = para[i]
             current += char
 
-            if char in '.!?':
-                if char == '.':
+            if char in ".!?":
+                if char == ".":
                     # Skip abbreviations: scan back to start of preceding word
                     word_start = len(current) - 2
-                    while word_start >= 0 and current[word_start] not in ' \n\t':
+                    while word_start >= 0 and current[word_start] not in " \n\t":
                         word_start -= 1
-                    word = current[word_start+1:-1].lower()
+                    word = current[word_start + 1 : -1].lower()
 
                     # Skip abbreviations and decimal numbers
-                    if word in _ABBREVIATIONS or (word.isdigit() and i + 1 < len(para) and para[i+1].isdigit()):
+                    if word in _ABBREVIATIONS or (word.isdigit() and i + 1 < len(para) and para[i + 1].isdigit()):
                         i += 1
                         continue
 
                 # Treat as continuation if next char is lowercase
-                if i + 1 < len(para) and para[i+1].islower():
+                if i + 1 < len(para) and para[i + 1].islower():
                     i += 1
                     continue
 
@@ -95,11 +116,7 @@ class TextChunker:
             # one very long sentence (common in technical content) lands
             # in a chunk that exceeds the TTS token limit and gets words
             # silently dropped during synthesis.
-            sub_sentences = (
-                self._split_long_sentence(sentence)
-                if len(sentence) > self.max_chunk_size
-                else [sentence]
-            )
+            sub_sentences = self._split_long_sentence(sentence) if len(sentence) > self.max_chunk_size else [sentence]
 
             for sub in sub_sentences:
                 if not current_chunk:
@@ -118,8 +135,10 @@ class TextChunker:
         if not chunks:
             chunks = self.chunk_by_words(text)
 
-        logger.info(f"Split text ({len(text)} chars) into {len(chunks)} chunks "
-                   f"(avg {len(text)//len(chunks) if chunks else 0} chars/chunk)")
+        logger.info(
+            f"Split text ({len(text)} chars) into {len(chunks)} chunks "
+            f"(avg {len(text) // len(chunks) if chunks else 0} chars/chunk)"
+        )
         return chunks
 
     def _split_long_sentence(self, sentence: str) -> List[str]:
@@ -133,6 +152,7 @@ class TextChunker:
 
         # Comma/semicolon split preserves prosody better than word-level.
         import re as _re
+
         parts = _re.split(r"([,;:—–])", sentence)
         # Re-attach punctuation to the preceding fragment so we don't
         # produce orphan punctuation chunks.
@@ -179,7 +199,7 @@ class TextChunker:
                 chunks.append(current_chunk.strip())
                 current_chunk = word
             else:
-                current_chunk += (" " + word if current_chunk else word)
+                current_chunk += " " + word if current_chunk else word
 
         if current_chunk.strip():
             chunks.append(current_chunk.strip())

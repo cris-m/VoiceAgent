@@ -34,9 +34,9 @@ class TTSSanitizer:
     # Emoji and symbol ranges (Unicode blocks)
     EMOJI_RANGES = [
         (0x1F300, 0x1F9FF),  # Emoticons, Symbols, Pictographs, etc.
-        (0x2600, 0x27BF),    # Miscellaneous Symbols, Dingbats
-        (0x2300, 0x23FF),    # Miscellaneous Technical
-        (0x2B50, 0x2B55),    # Stars
+        (0x2600, 0x27BF),  # Miscellaneous Symbols, Dingbats
+        (0x2300, 0x23FF),  # Miscellaneous Technical
+        (0x2B50, 0x2B55),  # Stars
         (0x1F900, 0x1F9FF),  # Supplemental Symbols and Pictographs
     ]
 
@@ -130,9 +130,7 @@ class TTSSanitizer:
         for char in text:
             code_point = ord(char)
 
-            is_emoji = any(
-                start <= code_point <= end for start, end in self.EMOJI_RANGES
-            )
+            is_emoji = any(start <= code_point <= end for start, end in self.EMOJI_RANGES)
 
             # "So" = Symbol-other, "Sk" = Symbol-modifier
             cat = unicodedata.category(char)
@@ -155,8 +153,11 @@ class TTSSanitizer:
         text = text.replace("‛", "'")  # Reversed single quotation mark
 
         # Smart double quotes
-        text = text.replace(""", '"')  # Left double quotation mark
-        text = text.replace(""", '"')  # Right double quotation mark
+        text = text.replace(
+            """, '"')  # Left double quotation mark
+        text = text.replace(""",
+            '"',
+        )  # Right double quotation mark
         text = text.replace("„", '"')  # Double low-9 quotation mark
 
         text = text.replace("′", "'")  # Prime
@@ -175,7 +176,5 @@ def sanitize_for_tts(text: str, aggressive: bool = False) -> str:
     return sanitizer.sanitize(text, aggressive=aggressive)
 
 
-def get_sanitizer(
-    keep_diacritics: bool = True, remove_urls: bool = False
-) -> TTSSanitizer:
+def get_sanitizer(keep_diacritics: bool = True, remove_urls: bool = False) -> TTSSanitizer:
     return TTSSanitizer(keep_diacritics=keep_diacritics, remove_urls=remove_urls)

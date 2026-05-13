@@ -15,22 +15,27 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
-import { configureStore } from '@reduxjs/toolkit';
+import { renderHook, act } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import React from 'react';
 import type { ReactNode } from 'react';
 
 // ---------------------------------------------------------------------------
-// Controllable WebSocket mock
+// Silence console.error during tests (expected WebSocket errors, etc.)
 // ---------------------------------------------------------------------------
 
-type WsEventMap = {
-  open?: () => void;
-  message?: (e: MessageEvent) => void;
-  error?: (e: Event) => void;
-  close?: (e: CloseEvent) => void;
-};
+beforeEach(() => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+// ---------------------------------------------------------------------------
+// Controllable WebSocket mock
+// ---------------------------------------------------------------------------
 
 class MockWebSocket {
   static CONNECTING = 0;
@@ -74,7 +79,7 @@ class MockWebSocket {
 // Keep a reference to the last created WebSocket for test access
 let lastWsInstance: MockWebSocket | null = null;
 
-const WebSocketSpy = vi.fn((..._args: unknown[]) => {
+const WebSocketSpy = vi.fn(() => {
   lastWsInstance = new MockWebSocket();
   return lastWsInstance;
 });
@@ -126,16 +131,6 @@ vi.mock('@context/VoiceConfigContext', () => ({
 
 import { store as appStore, reset } from '@store';
 import type { RootState } from '@store';
-
-function makeStore() {
-  // Use a freshly configured store so tests are isolated
-  const { configureStore: cs } = require('@reduxjs/toolkit');
-  // Re-use the same reducer by extracting it from the existing store import
-  // to avoid duplicating slice definitions.
-  const existingReducer = (appStore as unknown as { _rootReducer?: unknown })._rootReducer;
-  // Simplest: just use the real app store but reset it before each test
-  return appStore;
-}
 
 function makeWrapper(s: typeof appStore) {
   return function Wrapper({ children }: { children: ReactNode }) {

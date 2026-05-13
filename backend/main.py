@@ -20,12 +20,12 @@ from config import (
     REDOC_URL,
     settings,
 )
+from config.database import close_db, init_db
+from config.redis import close_redis, get_redis
 from core.error_handler import register_error_handlers
-from services.voice_pipeline import initialize_voice_pipeline, shutdown_voice_pipeline
 from services.agent.client import initialize_agent_client, shutdown_agent_client
 from services.music.ace_step import initialize_music_service, shutdown_music_service
-from config.database import init_db, close_db
-from config.redis import get_redis, close_redis
+from services.voice_pipeline import initialize_voice_pipeline, shutdown_voice_pipeline
 from utils import logger
 from utils.file_storage import ensure_dirs
 
@@ -44,8 +44,9 @@ async def lifespan(app: FastAPI):
         await initialize_agent_client()
         await initialize_music_service()
 
-        from services.voice_pipeline import get_voice_pipeline
         from services.agent.client import get_agent_client
+        from services.voice_pipeline import get_voice_pipeline
+
         pipeline = get_voice_pipeline()
         agent = get_agent_client()
 
@@ -110,7 +111,6 @@ def create_app() -> FastAPI:
     @app.get("/")
     async def root():
         return FileResponse(os.path.join(static_dir, "index.html"))
-
 
     return app
 

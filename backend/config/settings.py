@@ -1,5 +1,6 @@
 from functools import lru_cache
 from typing import List, Optional
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -51,7 +52,6 @@ class Settings(BaseSettings):
     POCKET_TTS_LANGUAGE: str = Field(default="english")
     POCKET_TTS_VOICE: str = Field(default="alba")
 
-
     MUSIC_PROVIDER: str = Field(default="ace_step")
 
     WS_HEARTBEAT_INTERVAL: int = Field(default=30)
@@ -66,8 +66,8 @@ class Settings(BaseSettings):
     # (markdown / code averages 2-3 chars/token vs 4-5 for prose). Picking
     # 180 here leaves headroom for unusual text without sacrificing too much
     # crossfade overhead. THRESHOLD = MAX so we always chunk for safety.
-    TEXT_CHUNK_THRESHOLD: int = Field(default=180)   # Always chunk if text > 180 chars
-    TEXT_MAX_CHUNK_SIZE: int = Field(default=180)    # Max chars per chunk
+    TEXT_CHUNK_THRESHOLD: int = Field(default=180)  # Always chunk if text > 180 chars
+    TEXT_MAX_CHUNK_SIZE: int = Field(default=180)  # Max chars per chunk
     AUDIO_CHUNK_THRESHOLD: int = Field(default=60)
     AUDIO_FILE_CHUNK_DURATION_MS: int = Field(default=30000)
     AUDIO_SILENCE_THRESH_DB: int = Field(default=-40)
@@ -122,7 +122,7 @@ class Settings(BaseSettings):
             if not v or len(v) < 32:
                 raise ValueError(
                     "SECRET_KEY must be set to a random string of at least 32 characters in production. "
-                    "Generate with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                    'Generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"'
                 )
         # In development, provide a default if not set
         elif not v:

@@ -61,9 +61,7 @@ class VoicePipeline:
             self._initialized = True
             logger.info(f"🎙️ Voice Pipeline Ready — STT: {stt_name} | TTS: {tts_name} | VAD: Silero")
 
-    def process_audio_chunk(
-        self, audio_chunk: np.ndarray
-    ) -> Tuple[Optional[VADEvent], bool]:
+    def process_audio_chunk(self, audio_chunk: np.ndarray) -> Tuple[Optional[VADEvent], bool]:
         clean_audio, is_echo = self._aec.process(audio_chunk)
 
         if is_echo:
@@ -183,9 +181,7 @@ class VoicePipeline:
         finally:
             if completed_naturally and total_samples > 0 and sample_rate_latest:
                 cleanup_delay_s = total_samples / sample_rate_latest + 0.15
-                self._pending_tts_cleanup = asyncio.create_task(
-                    self._delayed_tts_complete(cleanup_delay_s)
-                )
+                self._pending_tts_cleanup = asyncio.create_task(self._delayed_tts_complete(cleanup_delay_s))
             else:
                 self.on_tts_complete()
 
@@ -219,11 +215,11 @@ class VoicePipeline:
                 self._pending_tts_cleanup.cancel()
             self._pending_tts_cleanup = None
 
-            if hasattr(self._stt, 'shutdown'):
+            if hasattr(self._stt, "shutdown"):
                 await self._stt.shutdown()
-            if hasattr(self._tts, 'shutdown'):
+            if hasattr(self._tts, "shutdown"):
                 await self._tts.shutdown()
-            if hasattr(self._vad, 'shutdown'):
+            if hasattr(self._vad, "shutdown"):
                 await self._vad.shutdown()
 
             logger.info("Voice Pipeline shutdown complete")
@@ -232,6 +228,7 @@ class VoicePipeline:
 
     def _create_default_stt(self) -> BaseSTT:
         from config.settings import settings
+
         logger.info(f"[Pipeline] Whisper model: {settings.WHISPER_MODEL}")
         return WhisperSTT(
             model_size=settings.WHISPER_MODEL,
@@ -248,12 +245,14 @@ class VoicePipeline:
 
         if provider == "pocket_tts":
             from services.tts.pocket_tts import PocketTTS
+
             return PocketTTS(
                 language=settings.POCKET_TTS_LANGUAGE,
                 default_voice=settings.POCKET_TTS_VOICE,
             )
 
         from services.tts.kokoro import KokoroTTS
+
         return KokoroTTS(
             model_path=settings.KOKORO_MODEL_PATH,
             voices_path=settings.KOKORO_VOICES_PATH,
@@ -307,7 +306,7 @@ def get_voice_pipeline() -> VoicePipeline:
 def create_voice_pipeline_for_connection() -> VoicePipeline:
     """Per-connection pipeline: fresh VAD (stateful, not thread-safe),
     shared STT/TTS (stateless after model load)."""
-    from services.vad.silero import create_silero_vad, VADConfig
+    from services.vad.silero import VADConfig, create_silero_vad
 
     vad_config = VADConfig(
         speech_threshold=0.5,

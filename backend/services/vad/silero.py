@@ -1,8 +1,9 @@
-from enum import Enum
-from typing import Optional, Callable, List
-from dataclasses import dataclass
-from collections import deque
 import time
+from collections import deque
+from dataclasses import dataclass
+from enum import Enum
+from typing import Callable, List, Optional
+
 import numpy as np
 import torch
 
@@ -13,11 +14,11 @@ logger = get_logger(__name__)
 
 def _get_device() -> torch.device:
     if torch.cuda.is_available():
-        device = torch.device('cuda')
+        device = torch.device("cuda")
         logger.info(f"[VAD] Using CUDA device: {torch.cuda.get_device_name(0)}")
         return device
     logger.info("[VAD] CUDA not available, using CPU")
-    return torch.device('cpu')
+    return torch.device("cpu")
 
 
 class VADState(Enum):
@@ -49,7 +50,6 @@ class VADConfig:
 
 
 class SileroVAD:
-
     def __init__(self, config: Optional[VADConfig] = None, device: Optional[torch.device] = None):
         self.config = config or VADConfig()
         self._device = device or _get_device()
@@ -61,8 +61,9 @@ class SileroVAD:
         self._speech_start_time: float = 0.0
 
         self._audio_buffer: List[np.ndarray] = []
-        self._max_buffer_chunks = int(self.config.max_speech_duration_ms / 1000 *
-                                      self.config.sample_rate / self.config.chunk_samples) + 10
+        self._max_buffer_chunks = (
+            int(self.config.max_speech_duration_ms / 1000 * self.config.sample_rate / self.config.chunk_samples) + 10
+        )
 
         pre_roll_samples = int(self.config.pre_roll_ms * self.config.sample_rate / 1000)
         self._pre_roll_buffer: deque = deque(maxlen=pre_roll_samples // self.config.chunk_samples + 1)
@@ -84,14 +85,12 @@ class SileroVAD:
 
         try:
             from silero_vad import load_silero_vad
+
             self._model = load_silero_vad()
             logger.info("Silero VAD model loaded (silero-vad package)")
         except ImportError:
             self._model, _ = torch.hub.load(
-                repo_or_dir='snakers4/silero-vad',
-                model='silero_vad',
-                force_reload=False,
-                trust_repo=True
+                repo_or_dir="snakers4/silero-vad", model="silero_vad", force_reload=False, trust_repo=True
             )
             logger.info("Silero VAD model loaded (torch.hub)")
 
@@ -124,7 +123,7 @@ class SileroVAD:
 
         max_prob = 0.0
         for i in range(0, len(audio_chunk) - window_size + 1, window_size):
-            window = audio_chunk[i:i + window_size]
+            window = audio_chunk[i : i + window_size]
             tensor = torch.from_numpy(window).to(self._device)
 
             with torch.no_grad():
@@ -299,7 +298,7 @@ class SileroVAD:
             if self._model is not None:
                 del self._model
                 self._model = None
-            if self._device.type == 'cuda':
+            if self._device.type == "cuda":
                 torch.cuda.empty_cache()
 
             self._initialized = False

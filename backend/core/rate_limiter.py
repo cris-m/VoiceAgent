@@ -45,10 +45,7 @@ class InMemoryRateLimiter:
 
     def _cleanup_expired(self, window_start: float) -> None:
         """Remove empty deques. Must be called inside the lock."""
-        expired_keys = [
-            key for key, queue in self.requests_per_key.items()
-            if len(queue) == 0
-        ]
+        expired_keys = [key for key, queue in self.requests_per_key.items() if len(queue) == 0]
         for key in expired_keys:
             del self.requests_per_key[key]
 

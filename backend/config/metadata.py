@@ -54,4 +54,3 @@ API_TAGS: List[Dict[str, Any]] = [
 OPENAPI_URL = "/openapi.json"
 DOCS_URL = "/docs"
 REDOC_URL = "/redoc"
-

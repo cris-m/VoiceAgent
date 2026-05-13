@@ -93,6 +93,12 @@ Open <http://localhost:8080>.
 
 First boot pulls model weights (~2 GB Whisper plus ~80 MB Kokoro or ~500 MB Pocket TTS). Subsequent starts use the cache and complete in seconds.
 
+Rebuild from scratch after dependency changes:
+
+```bash
+docker compose -f docker-compose.dev.yml build --no-cache && docker compose -f docker-compose.dev.yml up -d --build
+```
+
 ## Configuration
 
 Each service has its own `.env`. The project-root `.env` is intentionally minimal; service configuration lives in `backend/.env` and `agent/.env`.

@@ -5,8 +5,8 @@ from typing import AsyncIterator, List, Optional
 
 import numpy as np
 
+from services.audio.base import AudioChunk, AudioConfig
 from services.base import BaseService
-from services.audio.base import AudioConfig, AudioChunk
 
 
 @dataclass
@@ -69,6 +69,7 @@ class TranscriptEvent:
     - is_final=False: interim/partial transcript that may change
     - is_final=True: committed transcript, will not change
     """
+
     text: str
     is_final: bool
     confidence: float = 0.0

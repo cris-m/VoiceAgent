@@ -1,12 +1,10 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from services.agent.client import AgentClient
 
-
-_DEFAULT_ASSISTANTS = [
-    {"assistant_id": "asst_default", "name": "TestAgent", "graph_id": "graph_1"}
-]
+_DEFAULT_ASSISTANTS = [{"assistant_id": "asst_default", "name": "TestAgent", "graph_id": "graph_1"}]
 
 
 def _mock_lg_client(assistants=None, thread=None):
@@ -18,29 +16,36 @@ def _mock_lg_client(assistants=None, thread=None):
     client.assistants.search = AsyncMock(return_value=resolved_assistants)
 
     client.threads = MagicMock()
-    client.threads.create = AsyncMock(return_value=thread or {
-        "thread_id": "thread_abc",
-        "created_at": "2026-01-01T00:00:00Z",
-        "updated_at": "2026-01-01T00:00:00Z",
-        "metadata": {},
-        "status": "idle",
-    })
-    client.threads.get = AsyncMock(return_value={
-        "thread_id": "thread_abc",
-        "created_at": "2026-01-01T00:00:00Z",
-        "updated_at": "2026-01-01T00:00:00Z",
-        "metadata": {},
-        "status": "idle",
-    })
+    client.threads.create = AsyncMock(
+        return_value=thread
+        or {
+            "thread_id": "thread_abc",
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z",
+            "metadata": {},
+            "status": "idle",
+        }
+    )
+    client.threads.get = AsyncMock(
+        return_value={
+            "thread_id": "thread_abc",
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z",
+            "metadata": {},
+            "status": "idle",
+        }
+    )
     client.threads.search = AsyncMock(return_value=[])
     client.threads.delete = AsyncMock(return_value=None)
-    client.threads.update = AsyncMock(return_value={
-        "thread_id": "thread_abc",
-        "created_at": "2026-01-01T00:00:00Z",
-        "updated_at": "2026-01-01T00:00:00Z",
-        "metadata": {"name": "Updated"},
-        "status": "idle",
-    })
+    client.threads.update = AsyncMock(
+        return_value={
+            "thread_id": "thread_abc",
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z",
+            "metadata": {"name": "Updated"},
+            "status": "idle",
+        }
+    )
     client.threads.get_state = AsyncMock(return_value={"values": {}, "next": [], "tasks": []})
 
     client.runs = MagicMock()
@@ -59,6 +64,7 @@ async def _empty_async_iter():
 def _make_agent_client(mock_lg=None) -> AgentClient:
     agent = AgentClient.__new__(AgentClient)
     from services.base import ServiceStatus
+
     agent.name = "langgraph-agent"
     agent.status = ServiceStatus.READY
     agent.logger = MagicMock()
@@ -72,13 +78,16 @@ def _make_agent_client(mock_lg=None) -> AgentClient:
 class TestAgentClientInitialization:
     @pytest.mark.asyncio
     async def test_initialize_discovers_first_assistant(self):
-        lg_client = _mock_lg_client(assistants=[
-            {"assistant_id": "asst_001", "name": "Agent 1", "graph_id": "g1"},
-            {"assistant_id": "asst_002", "name": "Agent 2", "graph_id": "g2"},
-        ])
+        lg_client = _mock_lg_client(
+            assistants=[
+                {"assistant_id": "asst_001", "name": "Agent 1", "graph_id": "g1"},
+                {"assistant_id": "asst_002", "name": "Agent 2", "graph_id": "g2"},
+            ]
+        )
 
         agent = AgentClient.__new__(AgentClient)
         from services.base import ServiceStatus
+
         agent.name = "langgraph-agent"
         agent.status = ServiceStatus.UNINITIALIZED
         agent.logger = MagicMock()
@@ -98,6 +107,7 @@ class TestAgentClientInitialization:
 
         agent = AgentClient.__new__(AgentClient)
         from services.base import ServiceStatus
+
         agent.name = "langgraph-agent"
         agent.status = ServiceStatus.UNINITIALIZED
         agent.logger = MagicMock()
@@ -190,9 +200,7 @@ class TestStreamEvents:
         lg.runs.stream = fake_stream
         agent = _make_agent_client(lg)
 
-        async for _ in agent.stream_events(
-            "thread_abc", "hello", mode="voice", voice_name="Heart"
-        ):
+        async for _ in agent.stream_events("thread_abc", "hello", mode="voice", voice_name="Heart"):
             pass
 
         assert captured_context.get("voice_name") == "Heart"
@@ -210,9 +218,7 @@ class TestStreamEvents:
         lg.runs.stream = fake_stream
         agent = _make_agent_client(lg)
 
-        async for _ in agent.stream_events(
-            "thread_abc", "hello", mode="voice", voice_description="Warm, expressive"
-        ):
+        async for _ in agent.stream_events("thread_abc", "hello", mode="voice", voice_description="Warm, expressive"):
             pass
 
         assert captured_context.get("voice_description") == "Warm, expressive"

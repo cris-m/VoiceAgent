@@ -47,6 +47,7 @@ class BaseAudioProcessor(ABC):
         if orig_sr == target_sr:
             return audio
         import librosa
+
         return librosa.resample(audio, orig_sr=orig_sr, target_sr=target_sr)
 
     @staticmethod

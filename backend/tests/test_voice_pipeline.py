@@ -1,11 +1,11 @@
-import asyncio
-import pytest
-import numpy as np
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock
 
+import numpy as np
+import pytest
+
+from services.audio.aec import EchoState
+from services.vad.silero import SileroVAD, VADConfig, VADEvent, VADState
 from services.voice_pipeline import VoicePipeline
-from services.vad.silero import VADState, VADEvent, VADConfig, SileroVAD
-from services.audio.aec import AECConfig, EchoCanceller, EchoState
 
 
 def _make_mock_stt():
@@ -251,7 +251,6 @@ class TestSynthesizeStream:
 
         pipeline = _make_pipeline()
         aec_reference_calls = []
-        original_add_ref = pipeline._aec.add_reference
         pipeline._aec.add_reference = lambda chunk: aec_reference_calls.append(len(chunk))
 
         async def fake_synth(text, voice=None, **kwargs):

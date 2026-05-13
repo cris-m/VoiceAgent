@@ -1,5 +1,7 @@
 from abc import abstractmethod
+
 import numpy as np
+
 from services.base import BaseService
 
 
@@ -12,5 +14,4 @@ class BaseMusicService(BaseService):
         duration: float,
         tempo: int | None,
         seed: int | None,
-    ) -> tuple[np.ndarray, int]:
-        ...
+    ) -> tuple[np.ndarray, int]: ...

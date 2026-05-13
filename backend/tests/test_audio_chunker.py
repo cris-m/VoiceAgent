@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import MagicMock, patch
 
 from services.stt.audio_chunker import AudioChunker
@@ -79,10 +78,13 @@ class TestSilenceBoundaryDetection:
         audio = MagicMock()
 
         # Patch at module level since that's where it's looked up
-        with patch("services.stt.audio_chunker.detect_silence", return_value=[
-            (1000, 2000),  # midpoint = 1500
-            (5000, 7000),  # midpoint = 6000
-        ]):
+        with patch(
+            "services.stt.audio_chunker.detect_silence",
+            return_value=[
+                (1000, 2000),  # midpoint = 1500
+                (5000, 7000),  # midpoint = 6000
+            ],
+        ):
             points = chunker.detect_silence_boundaries(audio)
 
         assert points == [1500, 6000]

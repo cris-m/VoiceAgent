@@ -1,16 +1,17 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Header
-from fastapi.responses import JSONResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
-
 from uuid import UUID
+
+from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from api.dependency import check_rate_limit
+from api.dependency.auth import get_current_user_id, get_refresh_token_from_cookie
 from config.database import get_db
 from config.settings import settings
-from schemas.auth import UserRegister, UserLogin, TokenResponse, UserResponse
+from schemas.auth import TokenResponse, UserLogin, UserRegister, UserResponse
 from services.auth import AuthService
 from services.token_blacklist import TokenBlacklistService
-from api.dependency.auth import get_refresh_token_from_cookie, get_current_user_id
-from api.dependency import check_rate_limit
 from utils import get_logger
 
 logger = get_logger(__name__)
@@ -71,7 +72,7 @@ async def register(request: UserRegister, session: AsyncSession = Depends(get_db
                 access_token=access_token,
                 user_id=user.user_id,
                 username=user.username,
-            ).model_dump(mode='json'),
+            ).model_dump(mode="json"),
         )
 
         _set_refresh_token_cookie(response, refresh_token)
@@ -123,7 +124,7 @@ async def login(request: UserLogin, session: AsyncSession = Depends(get_db)):
                 access_token=access_token,
                 user_id=user.user_id,
                 username=user.username,
-            ).model_dump(mode='json'),
+            ).model_dump(mode="json"),
         )
 
         _set_refresh_token_cookie(response, refresh_token)
@@ -187,9 +188,7 @@ async def refresh(
         if old_jti and exp:
             await TokenBlacklistService.add_to_blacklist(old_jti, exp)
 
-        refresh_token, refresh_jti = AuthService.create_refresh_token(
-            user.user_id, user.username
-        )
+        refresh_token, refresh_jti = AuthService.create_refresh_token(user.user_id, user.username)
 
         logger.info(f"Token refreshed for user: {username} (refresh token rotated)")
 
@@ -199,7 +198,7 @@ async def refresh(
                 access_token=access_token,
                 user_id=user.user_id,
                 username=user.username,
-            ).model_dump(mode='json'),
+            ).model_dump(mode="json"),
         )
 
         _set_refresh_token_cookie(response, refresh_token)
@@ -273,5 +272,3 @@ async def logout(authorization: str | None = Header(default=None)):
         response.delete_cookie(key="refresh_token", path=cookie_path)
 
     return response
-
-

@@ -1,18 +1,18 @@
-from typing import AsyncIterator, List, Optional
 import asyncio
+from typing import AsyncIterator, List, Optional
 
 import numpy as np
 from faster_whisper import WhisperModel
 
+from services.audio.base import AudioChunk
 from services.stt.base import (
     BaseSTT,
+    PartialResult,
     STTConfig,
     STTResult,
-    PartialResult,
     TranscriptionSegment,
     WordTiming,
 )
-from services.audio.base import AudioChunk
 
 
 class WhisperSTT(BaseSTT):
@@ -67,14 +67,16 @@ class WhisperSTT(BaseSTT):
             dummy = np.zeros(16000, dtype=np.float32)
             await loop.run_in_executor(
                 None,
-                lambda: list(self._model.transcribe(
-                    dummy,
-                    beam_size=1,
-                    best_of=1,
-                    word_timestamps=False,
-                    condition_on_previous_text=False,
-                    vad_filter=False,
-                )[0]),
+                lambda: list(
+                    self._model.transcribe(
+                        dummy,
+                        beam_size=1,
+                        best_of=1,
+                        word_timestamps=False,
+                        condition_on_previous_text=False,
+                        vad_filter=False,
+                    )[0]
+                ),
             )
             self.logger.info("Whisper warm-up complete")
         except Exception as e:
@@ -102,6 +104,7 @@ class WhisperSTT(BaseSTT):
 
         if sample_rate != 16000:
             import librosa
+
             audio = librosa.resample(audio, orig_sr=sample_rate, target_sr=16000)
 
         language = self._resolve_language(language) if language else None
@@ -226,14 +229,103 @@ class WhisperSTT(BaseSTT):
 
     async def get_supported_languages(self) -> List[str]:
         return [
-            "en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr",
-            "pl", "ca", "nl", "ar", "sv", "it", "id", "hi", "fi", "vi",
-            "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no",
-            "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk",
-            "te", "fa", "lv", "bn", "sr", "az", "sl", "kn", "et", "mk",
-            "br", "eu", "is", "hy", "ne", "mn", "bs", "kk", "sq", "sw",
-            "gl", "mr", "pa", "si", "km", "sn", "yo", "so", "af", "oc",
-            "ka", "be", "tg", "sd", "gu", "am", "yi", "lo", "uz", "fo",
-            "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl",
-            "mg", "as", "tt", "haw", "ln", "ha", "ba", "jw", "su",
+            "en",
+            "zh",
+            "de",
+            "es",
+            "ru",
+            "ko",
+            "fr",
+            "ja",
+            "pt",
+            "tr",
+            "pl",
+            "ca",
+            "nl",
+            "ar",
+            "sv",
+            "it",
+            "id",
+            "hi",
+            "fi",
+            "vi",
+            "he",
+            "uk",
+            "el",
+            "ms",
+            "cs",
+            "ro",
+            "da",
+            "hu",
+            "ta",
+            "no",
+            "th",
+            "ur",
+            "hr",
+            "bg",
+            "lt",
+            "la",
+            "mi",
+            "ml",
+            "cy",
+            "sk",
+            "te",
+            "fa",
+            "lv",
+            "bn",
+            "sr",
+            "az",
+            "sl",
+            "kn",
+            "et",
+            "mk",
+            "br",
+            "eu",
+            "is",
+            "hy",
+            "ne",
+            "mn",
+            "bs",
+            "kk",
+            "sq",
+            "sw",
+            "gl",
+            "mr",
+            "pa",
+            "si",
+            "km",
+            "sn",
+            "yo",
+            "so",
+            "af",
+            "oc",
+            "ka",
+            "be",
+            "tg",
+            "sd",
+            "gu",
+            "am",
+            "yi",
+            "lo",
+            "uz",
+            "fo",
+            "ht",
+            "ps",
+            "tk",
+            "nn",
+            "mt",
+            "sa",
+            "lb",
+            "my",
+            "bo",
+            "tl",
+            "mg",
+            "as",
+            "tt",
+            "haw",
+            "ln",
+            "ha",
+            "ba",
+            "jw",
+            "su",
         ]

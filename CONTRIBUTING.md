@@ -21,6 +21,12 @@ docker compose -f docker-compose.dev.yml up -d
 
 Open <http://localhost:8080>.
 
+Rebuild from scratch after dependency changes:
+
+```bash
+docker compose -f docker-compose.dev.yml build --no-cache && docker compose -f docker-compose.dev.yml up -d --build
+```
+
 ### Watching logs
 
 ```bash

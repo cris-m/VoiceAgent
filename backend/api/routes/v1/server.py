@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
-from services.voice_pipeline import get_voice_pipeline
 from services.agent.client import get_agent_client
+from services.voice_pipeline import get_voice_pipeline
 
 router = APIRouter(tags=["Health"])
 

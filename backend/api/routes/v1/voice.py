@@ -10,7 +10,6 @@ import time
 import wave
 from typing import Optional
 
-
 _FILLER_PHRASES = [
     "Hmm.",
     "Let me think.",
@@ -22,19 +21,95 @@ FILLER_DELAY_S = 1.2
 
 
 _INCOMPLETE_LAST_WORDS = {
-    "can", "could", "would", "should", "will", "shall", "may", "might", "must",
-    "do", "does", "did", "have", "has", "had",
-    "is", "are", "was", "were", "am", "be", "been", "being",
-    "and", "but", "or", "nor", "so", "yet", "for",
-    "because", "since", "although", "though", "while", "whereas",
-    "if", "unless", "until", "when", "where", "as",
-    "a", "an", "the",
-    "my", "your", "his", "her", "its", "our", "their",
-    "this", "that", "these", "those",
-    "to", "of", "in", "on", "at", "by", "from", "with", "about",
-    "into", "onto", "upon", "over", "under", "between", "through",
-    "um", "uh", "uhm", "ahh", "er", "like", "well", "hmm",
-    "what", "who", "whom", "whose", "where", "when", "why", "how", "which",
+    "can",
+    "could",
+    "would",
+    "should",
+    "will",
+    "shall",
+    "may",
+    "might",
+    "must",
+    "do",
+    "does",
+    "did",
+    "have",
+    "has",
+    "had",
+    "is",
+    "are",
+    "was",
+    "were",
+    "am",
+    "be",
+    "been",
+    "being",
+    "and",
+    "but",
+    "or",
+    "nor",
+    "so",
+    "yet",
+    "for",
+    "because",
+    "since",
+    "although",
+    "though",
+    "while",
+    "whereas",
+    "if",
+    "unless",
+    "until",
+    "when",
+    "where",
+    "as",
+    "a",
+    "an",
+    "the",
+    "my",
+    "your",
+    "his",
+    "her",
+    "its",
+    "our",
+    "their",
+    "this",
+    "that",
+    "these",
+    "those",
+    "to",
+    "of",
+    "in",
+    "on",
+    "at",
+    "by",
+    "from",
+    "with",
+    "about",
+    "into",
+    "onto",
+    "upon",
+    "over",
+    "under",
+    "between",
+    "through",
+    "um",
+    "uh",
+    "uhm",
+    "ahh",
+    "er",
+    "like",
+    "well",
+    "hmm",
+    "what",
+    "who",
+    "whom",
+    "whose",
+    "where",
+    "when",
+    "why",
+    "how",
+    "which",
 }
 SEMANTIC_GRACE_MS = 700.0
 
@@ -54,15 +129,26 @@ def _is_incomplete_utterance(text: str) -> bool:
     last = re.sub(r"[^\w]", "", words[-1]).lower()
     return last in _INCOMPLETE_LAST_WORDS
 
-import numpy as np
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
-from fastapi.responses import StreamingResponse
-from pydub import AudioSegment
 
 from uuid import UUID
-from config.settings import settings
-from api.dependency import verify_api_key, check_rate_limit
+
+import numpy as np
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
+from fastapi.responses import JSONResponse
+from pydub import AudioSegment
+
+from api.dependency import check_rate_limit, verify_api_key
 from api.dependency.auth import get_current_user_id
+from config.settings import settings
 from schemas.voice import (
     AgentStatus,
     ClonedVoicesResponse,
@@ -82,11 +168,10 @@ from services.stt.audio_chunker import AudioChunker
 from services.tts.base import BaseTTS
 from services.tts.text_chunker import TextChunker
 from services.vad.silero import VADState
-from services.voice_pipeline import get_voice_pipeline, create_voice_pipeline_for_connection
+from services.voice_pipeline import create_voice_pipeline_for_connection, get_voice_pipeline
 from utils import get_logger
+from utils.file_storage import delete_file, list_files, save_audio_file
 from utils.tts_sanitizer import sanitize_for_tts
-from utils.file_storage import save_audio_file, list_files, delete_file
-from fastapi.responses import JSONResponse
 
 logger = get_logger(__name__)
 router = APIRouter(
@@ -100,29 +185,29 @@ _active_connections = 0
 _connections_lock = asyncio.Lock()
 
 _INJECTION_PATTERNS = [
-    r'\n\s*(Human|Assistant|System|User):\s*',
-    r'</?\w+>',
-    r'\[INST\]|\[/INST\]',
-    r'<\|im_start\||<\|im_end\|',
-    r'`{3,}',
+    r"\n\s*(Human|Assistant|System|User):\s*",
+    r"</?\w+>",
+    r"\[INST\]|\[/INST\]",
+    r"<\|im_start\||<\|im_end\|",
+    r"`{3,}",
 ]
-_INJECTION_REGEX = re.compile('|'.join(_INJECTION_PATTERNS), re.IGNORECASE)
+_INJECTION_REGEX = re.compile("|".join(_INJECTION_PATTERNS), re.IGNORECASE)
 
 _AUDIO_MAGIC_AT_OFFSET_0 = {
-    b'RIFF': 'wav',
-    b'ID3': 'mp3',
-    b'\xff\xfb': 'mp3',
-    b'\xff\xfa': 'mp3',
-    b'\xff\xf3': 'mp3',
-    b'\xff\xf2': 'mp3',
-    b'\xff\xf1': 'aac',
-    b'\xff\xf9': 'aac',
-    b'OggS': 'ogg',
-    b'fLaC': 'flac',
-    b'FORM': 'aiff',
-    b'\x1a\x45\xdf\xa3': 'webm',
+    b"RIFF": "wav",
+    b"ID3": "mp3",
+    b"\xff\xfb": "mp3",
+    b"\xff\xfa": "mp3",
+    b"\xff\xf3": "mp3",
+    b"\xff\xf2": "mp3",
+    b"\xff\xf1": "aac",
+    b"\xff\xf9": "aac",
+    b"OggS": "ogg",
+    b"fLaC": "flac",
+    b"FORM": "aiff",
+    b"\x1a\x45\xdf\xa3": "webm",
 }
-_FTYP_MAGIC = b'ftyp'
+_FTYP_MAGIC = b"ftyp"
 
 
 def _validate_audio_magic_bytes(data: bytes) -> str:
@@ -130,7 +215,7 @@ def _validate_audio_magic_bytes(data: bytes) -> str:
         if data.startswith(magic):
             return fmt
     if len(data) >= 8 and data[4:8] == _FTYP_MAGIC:
-        return 'mp4'
+        return "mp4"
     raise ValueError("Unsupported audio format")
 
 
@@ -184,12 +269,27 @@ def _create_wav_buffer(audio_int16: np.ndarray, sample_rate: int) -> io.BytesIO:
 
 def _supports_cloning(tts: BaseTTS) -> bool:
     from services.tts.pocket_tts import PocketTTS
+
     return isinstance(tts, PocketTTS)
 
 
 _ABBREVIATIONS = {
-    "mr.", "mrs.", "ms.", "dr.", "sr.", "jr.", "st.", "vs.", "etc.",
-    "i.e.", "e.g.", "u.s.", "u.k.", "a.m.", "p.m.", "no.",
+    "mr.",
+    "mrs.",
+    "ms.",
+    "dr.",
+    "sr.",
+    "jr.",
+    "st.",
+    "vs.",
+    "etc.",
+    "i.e.",
+    "e.g.",
+    "u.s.",
+    "u.k.",
+    "a.m.",
+    "p.m.",
+    "no.",
 }
 _SENTENCE_END_RE = re.compile(r"([.!?])(\s+|$)")
 
@@ -205,27 +305,27 @@ def _strip_markdown(text: str) -> str:
     unrelated markdown delimiters and delete content between them.
     """
     # NO DOTALL — only match same-line pairs
-    text = re.sub(r'\*\*([^\n]*?)\*\*', r'\1', text)
-    text = re.sub(r'\*([^\n]*?)\*', r'\1', text)
-    text = re.sub(r'__([^\n]*?)__', r'\1', text)
+    text = re.sub(r"\*\*([^\n]*?)\*\*", r"\1", text)
+    text = re.sub(r"\*([^\n]*?)\*", r"\1", text)
+    text = re.sub(r"__([^\n]*?)__", r"\1", text)
 
-    text = re.sub(r'^#+\s+', '', text, flags=re.MULTILINE)
+    text = re.sub(r"^#+\s+", "", text, flags=re.MULTILINE)
 
     # Pocket TTS tokenizes "---" as 3 punctuation tokens, eating into the
     # 50-token budget.
-    text = re.sub(r'^\s*([-*_]\s*){3,}\s*$', '', text, flags=re.MULTILINE)
-    text = re.sub(r'\s+-{3,}\s+', ' ', text)
+    text = re.sub(r"^\s*([-*_]\s*){3,}\s*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"\s+-{3,}\s+", " ", text)
 
-    text = re.sub(r'^\s*[-*+]\s+', '', text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*[-*+]\s+", "", text, flags=re.MULTILINE)
 
-    text = re.sub(r'^\s*>\s+', '', text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*>\s+", "", text, flags=re.MULTILINE)
 
-    text = re.sub(r'\[([^\n]*?)\]\([^\n]*?\)', r'\1', text)
+    text = re.sub(r"\[([^\n]*?)\]\([^\n]*?\)", r"\1", text)
 
-    text = re.sub(r'`([^\n]*?)`', r'\1', text)
+    text = re.sub(r"`([^\n]*?)`", r"\1", text)
 
-    text = re.sub(r'\n\n+', '\n\n', text)
-    text = re.sub(r'[ \t]{2,}', ' ', text)
+    text = re.sub(r"\n\n+", "\n\n", text)
+    text = re.sub(r"[ \t]{2,}", " ", text)
 
     return text.strip()
 
@@ -269,7 +369,7 @@ async def voice_websocket(websocket: WebSocket) -> None:
     the LLM doesn't wait for TTS, TTS doesn't wait for the LLM to finish, and
     STT runs DURING user speech rather than after.
     """
-    from api.dependency import rate_limiter, _get_client_ip
+    from api.dependency import _get_client_ip, rate_limiter
 
     global _active_connections
 
@@ -333,10 +433,7 @@ async def voice_websocket(websocket: WebSocket) -> None:
 
     stt_session = await pipeline.open_stt_stream(sample_rate=sample_rate)
     stt_supports_streaming = pipeline.stt_supports_streaming
-    logger.info(
-        f"STT session opened (streaming={stt_supports_streaming}, "
-        f"provider={type(pipeline.stt).__name__})"
-    )
+    logger.info(f"STT session opened (streaming={stt_supports_streaming}, provider={type(pipeline.stt).__name__})")
 
     async def audio_receiver() -> None:
         try:
@@ -361,16 +458,20 @@ async def voice_websocket(websocket: WebSocket) -> None:
                             try:
                                 text_input = _sanitize_user_input(json_data.get("text", ""))
                                 await transcript_queue.put(text_input)
-                                await websocket.send_json({
-                                    "type": "partial_transcript",
-                                    "text": text_input,
-                                    "is_final": True,
-                                })
+                                await websocket.send_json(
+                                    {
+                                        "type": "partial_transcript",
+                                        "text": text_input,
+                                        "is_final": True,
+                                    }
+                                )
                             except ValueError as e:
-                                await websocket.send_json({
-                                    "type": "error",
-                                    "message": f"Invalid input: {str(e)}",
-                                })
+                                await websocket.send_json(
+                                    {
+                                        "type": "error",
+                                        "message": f"Invalid input: {str(e)}",
+                                    }
+                                )
                             continue
                     except Exception as e:
                         logger.warning(f"Failed to parse JSON message: {e}")
@@ -398,9 +499,8 @@ async def voice_websocket(websocket: WebSocket) -> None:
                 ai_audible = is_responding_ref["value"] or pipeline.is_ai_speaking()
 
                 speech_event = (
-                    (vad_event is not None and vad_event.state == VADState.SPEECH_START)
-                    or vad_state_now == VADState.SPEAKING
-                )
+                    vad_event is not None and vad_event.state == VADState.SPEECH_START
+                ) or vad_state_now == VADState.SPEAKING
 
                 if (
                     ai_audible
@@ -448,15 +548,17 @@ async def voice_websocket(websocket: WebSocket) -> None:
 
                 current_state = pipeline.get_vad_state().value
                 if current_state != last_vad_state_ref["value"]:
-                    await websocket.send_json({
-                        "type": "vad",
-                        "state": current_state,
-                        "probability": round(prob, 2),
-                        "is_speaking": pipeline.is_speaking(),
-                        "is_echo": is_echo,
-                        "aec_state": pipeline.get_aec_state(),
-                        "is_responding": is_responding_ref["value"],
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "vad",
+                            "state": current_state,
+                            "probability": round(prob, 2),
+                            "is_speaking": pipeline.is_speaking(),
+                            "is_echo": is_echo,
+                            "aec_state": pipeline.get_aec_state(),
+                            "is_responding": is_responding_ref["value"],
+                        }
+                    )
                     last_vad_state_ref["value"] = current_state
 
                 # Streaming STT (Kyutai): the model handles end-of-utterance internally
@@ -469,10 +571,7 @@ async def voice_websocket(websocket: WebSocket) -> None:
                     and getattr(vad_event, "audio_buffer", None) is not None
                     and len(vad_event.audio_buffer) > 0
                 ):
-                    logger.info(
-                        f"[Batch STT] VAD endpoint reached "
-                        f"({vad_event.duration_ms:.0f}ms audio)"
-                    )
+                    logger.info(f"[Batch STT] VAD endpoint reached ({vad_event.duration_ms:.0f}ms audio)")
                     # Close to flush; transcript_collector loop reopens for next turn.
                     await stt_session.close()
         except WebSocketDisconnect:
@@ -504,11 +603,13 @@ async def voice_websocket(websocket: WebSocket) -> None:
         turn_metrics["stt_final_at"] = time.monotonic()
         logger.info(f"[Turn] Grace expired, flushing as-is: '{text[:60]}'")
         try:
-            await websocket.send_json({
-                "type": "partial_transcript",
-                "text": text,
-                "is_final": True,
-            })
+            await websocket.send_json(
+                {
+                    "type": "partial_transcript",
+                    "text": text,
+                    "is_final": True,
+                }
+            )
         except Exception:
             pass
         await transcript_queue.put(text)
@@ -529,11 +630,13 @@ async def voice_websocket(websocket: WebSocket) -> None:
 
                         if not event.is_final:
                             if event.text:
-                                await websocket.send_json({
-                                    "type": "partial_transcript",
-                                    "text": event.text,
-                                    "is_final": False,
-                                })
+                                await websocket.send_json(
+                                    {
+                                        "type": "partial_transcript",
+                                        "text": event.text,
+                                        "is_final": False,
+                                    }
+                                )
                             continue
 
                         text = (event.text or "").strip()
@@ -543,9 +646,7 @@ async def voice_websocket(websocket: WebSocket) -> None:
                         # Combine with any held-incomplete transcript so
                         # "Hey can you" + "book a flight" → "Hey can you book a flight".
                         combined = (
-                            (pending_text_ref["value"] + " " + text).strip()
-                            if pending_text_ref["value"]
-                            else text
+                            (pending_text_ref["value"] + " " + text).strip() if pending_text_ref["value"] else text
                         )
 
                         prev_task = pending_flush_task_ref["task"]
@@ -555,14 +656,14 @@ async def voice_websocket(websocket: WebSocket) -> None:
 
                         if _is_incomplete_utterance(combined):
                             pending_text_ref["value"] = combined
-                            await websocket.send_json({
-                                "type": "partial_transcript",
-                                "text": combined,
-                                "is_final": False,
-                            })
-                            pending_flush_task_ref["task"] = asyncio.create_task(
-                                _flush_pending_after_grace(combined)
+                            await websocket.send_json(
+                                {
+                                    "type": "partial_transcript",
+                                    "text": combined,
+                                    "is_final": False,
+                                }
                             )
+                            pending_flush_task_ref["task"] = asyncio.create_task(_flush_pending_after_grace(combined))
                             logger.info(
                                 f"[Turn] Incomplete (last word looks hanging): "
                                 f"'{combined[:60]}' — holding {SEMANTIC_GRACE_MS:.0f}ms"
@@ -570,11 +671,13 @@ async def voice_websocket(websocket: WebSocket) -> None:
                         else:
                             pending_text_ref["value"] = ""
                             turn_metrics["stt_final_at"] = time.monotonic()
-                            await websocket.send_json({
-                                "type": "partial_transcript",
-                                "text": combined,
-                                "is_final": True,
-                            })
+                            await websocket.send_json(
+                                {
+                                    "type": "partial_transcript",
+                                    "text": combined,
+                                    "is_final": True,
+                                }
+                            )
                             logger.info(f"[Transcript Received] {combined}")
                             await transcript_queue.put(combined)
 
@@ -584,23 +687,19 @@ async def voice_websocket(websocket: WebSocket) -> None:
                                 if len(combined.strip()) > 45:
                                     title += "…"
                                 try:
-                                    await agent.update_thread_metadata(
-                                        thread_id, {"name": title}
+                                    await agent.update_thread_metadata(thread_id, {"name": title})
+                                    await websocket.send_json(
+                                        {
+                                            "type": "thread_title",
+                                            "thread_id": thread_id,
+                                            "title": title,
+                                        }
                                     )
-                                    await websocket.send_json({
-                                        "type": "thread_title",
-                                        "thread_id": thread_id,
-                                        "title": title,
-                                    })
-                                    logger.info(
-                                        f"[Thread Title] {thread_id} → {title!r}"
-                                    )
+                                    logger.info(f"[Thread Title] {thread_id} → {title!r}")
                                 except Exception as e:
                                     # Non-fatal — leave the default title
                                     # in place if the metadata update fails.
-                                    logger.warning(
-                                        f"Failed to set thread title: {e}"
-                                    )
+                                    logger.warning(f"Failed to set thread title: {e}")
                                     thread_title_set_ref["value"] = False
                 except StopAsyncIteration:
                     pass
@@ -670,10 +769,7 @@ async def voice_websocket(websocket: WebSocket) -> None:
                 voice_obj = await pipeline.tts.get_voice(voice_id) if voice_id else None
                 voice_name = voice_obj.name if voice_obj else None
                 voice_description = voice_obj.description if voice_obj else None
-                logger.info(
-                    f"[Voice→Agent] voice_id={voice_id} "
-                    f"name={voice_name!r} desc={voice_description!r}"
-                )
+                logger.info(f"[Voice→Agent] voice_id={voice_id} name={voice_name!r} desc={voice_description!r}")
 
                 async for llm_event in agent.stream_events(
                     thread_id,
@@ -689,10 +785,10 @@ async def voice_websocket(websocket: WebSocket) -> None:
                     if etype == "token":
                         if "llm_first_token_at" not in turn_metrics:
                             turn_metrics["llm_first_token_at"] = time.monotonic()
-                            logger.info(
-                                f"[Latency] LLM first token: "
-                                f"{(turn_metrics['llm_first_token_at'] - turn_metrics['response_start_at'])*1000:.0f}ms"
-                            )
+                            first_token_ms = (
+                                turn_metrics["llm_first_token_at"] - turn_metrics["response_start_at"]
+                            ) * 1000
+                            logger.info(f"[Latency] LLM first token: {first_token_ms:.0f}ms")
                             # Cancel pending filler so we don't queue "let me
                             # think" right before the actual answer. If the
                             # filler already fired (TTFT > FILLER_DELAY_S),
@@ -701,11 +797,13 @@ async def voice_websocket(websocket: WebSocket) -> None:
 
                         buffer += llm_event["content"]
                         full_response += llm_event["content"]
-                        await websocket.send_json({
-                            "type": "text_stream",
-                            "text": llm_event["content"],
-                            "done": False,
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "text_stream",
+                                "text": llm_event["content"],
+                                "done": False,
+                            }
+                        )
                         sentences, buffer = _split_sentences(buffer)
 
                         # First-sentence early break: if no sentence yet but
@@ -714,12 +812,7 @@ async def voice_websocket(websocket: WebSocket) -> None:
                         # 200-500ms sooner. Only applies to the very first
                         # chunk of a turn — subsequent sentences wait for
                         # proper end-of-sentence punctuation.
-                        if (
-                            not first_sentence_emitted
-                            and not sentences
-                            and len(buffer) >= 30
-                            and "," in buffer
-                        ):
+                        if not first_sentence_emitted and not sentences and len(buffer) >= 30 and "," in buffer:
                             comma_idx = buffer.find(",")
                             if comma_idx >= 20:
                                 head = buffer[: comma_idx + 1].strip()
@@ -736,15 +829,21 @@ async def voice_websocket(websocket: WebSocket) -> None:
                                 first_sentence_emitted = True
                     elif etype == "error":
                         logger.error(f"Agent error: {llm_event.get('message')}")
-                        await websocket.send_json({
-                            "type": "error",
-                            "message": llm_event.get("message", "Agent error"),
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "error",
+                                "message": llm_event.get("message", "Agent error"),
+                            }
+                        )
                         break
                     elif etype == "done":
-                        await websocket.send_json({
-                            "type": "text_stream", "text": "", "done": True,
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "text_stream",
+                                "text": "",
+                                "done": True,
+                            }
+                        )
 
                 if buffer.strip() and not interrupt_event.is_set():
                     clean_buffer = sanitize_for_tts(_strip_markdown(buffer.strip()), aggressive=False)
@@ -836,10 +935,12 @@ async def voice_websocket(websocket: WebSocket) -> None:
                     if chunk["type"] == "audio_info":
                         if not audio_info_sent:
                             try:
-                                await websocket.send_json({
-                                    "type": "audio_info",
-                                    "sample_rate": chunk["sample_rate"],
-                                })
+                                await websocket.send_json(
+                                    {
+                                        "type": "audio_info",
+                                        "sample_rate": chunk["sample_rate"],
+                                    }
+                                )
                             except (WebSocketDisconnect, RuntimeError) as e:
                                 logger.info(f"[TTS] Client gone during audio_info send: {e}")
                                 client_gone = True
@@ -849,14 +950,8 @@ async def voice_websocket(websocket: WebSocket) -> None:
                         if "tts_first_byte_at" not in turn_metrics:
                             turn_metrics["tts_first_byte_at"] = time.monotonic()
                             if "stt_final_at" in turn_metrics:
-                                ttfb_ms = (
-                                    turn_metrics["tts_first_byte_at"]
-                                    - turn_metrics["stt_final_at"]
-                                ) * 1000
-                                logger.info(
-                                    f"[Latency] TTFB (STT-final → TTS-first-byte): "
-                                    f"{ttfb_ms:.0f}ms"
-                                )
+                                ttfb_ms = (turn_metrics["tts_first_byte_at"] - turn_metrics["stt_final_at"]) * 1000
+                                logger.info(f"[Latency] TTFB (STT-final → TTS-first-byte): {ttfb_ms:.0f}ms")
                         try:
                             await websocket.send_bytes(chunk["audio"].tobytes())
                         except (WebSocketDisconnect, RuntimeError) as e:
@@ -864,9 +959,7 @@ async def voice_websocket(websocket: WebSocket) -> None:
                             # Break cleanly so the generator's interrupt path
                             # (immediate AEC cleanup) runs instead of an
                             # exception propagating mid-stream.
-                            logger.info(
-                                f"[TTS] send_bytes failed, stopping stream: {e}"
-                            )
+                            logger.info(f"[TTS] send_bytes failed, stopping stream: {e}")
                             client_gone = True
                             break
 
@@ -933,7 +1026,11 @@ async def startup_voice_services() -> None:
     logger.info("Agent client ready")
 
 
-@router.get("/status", response_model=VoiceStatusResponse, dependencies=[Depends(verify_api_key), Depends(check_rate_limit)])
+@router.get(
+    "/status",
+    response_model=VoiceStatusResponse,
+    dependencies=[Depends(verify_api_key), Depends(check_rate_limit)],
+)
 async def get_status() -> VoiceStatusResponse:
     """Get voice agent status."""
     try:
@@ -1043,7 +1140,11 @@ async def get_voices() -> VoicesResponse:
     return VoicesResponse(voices=voices, default_voice=default_voice)
 
 
-@router.get("/languages", response_model=LanguagesResponse, dependencies=[Depends(verify_api_key), Depends(check_rate_limit)])
+@router.get(
+    "/languages",
+    response_model=LanguagesResponse,
+    dependencies=[Depends(verify_api_key), Depends(check_rate_limit)],
+)
 async def get_languages() -> LanguagesResponse:
     """Get supported TTS languages."""
     pipeline = get_voice_pipeline()
@@ -1054,17 +1155,13 @@ async def get_languages() -> LanguagesResponse:
     languages = []
     for lang in tts_languages:
         if isinstance(lang, dict):
-            languages.append(LanguageInfo(
-                code=lang.get("code", ""),
-                name=lang.get("name", ""),
-                native_name=lang.get("native_name", "")
-            ))
+            languages.append(
+                LanguageInfo(
+                    code=lang.get("code", ""), name=lang.get("name", ""), native_name=lang.get("native_name", "")
+                )
+            )
         else:
-            languages.append(LanguageInfo(
-                code=lang.code,
-                name=lang.name,
-                native_name=getattr(lang, "native_name", "")
-            ))
+            languages.append(LanguageInfo(code=lang.code, name=lang.name, native_name=getattr(lang, "native_name", "")))
     return LanguagesResponse(languages=languages, default_language="auto")
 
 
@@ -1079,7 +1176,11 @@ async def interrupt() -> dict:
     return {"status": "interrupted", "aec_state": pipeline.get_aec_state()}
 
 
-@router.post("/transcribe", response_model=TranscriptionResponse, dependencies=[Depends(verify_api_key), Depends(check_rate_limit)])
+@router.post(
+    "/transcribe",
+    response_model=TranscriptionResponse,
+    dependencies=[Depends(verify_api_key), Depends(check_rate_limit)],
+)
 async def transcribe_audio(
     file: UploadFile = File(..., description="Audio file"),
     language: str = Form(default=None, description="Language hint"),
@@ -1112,7 +1213,7 @@ async def transcribe_audio(
             chunker = AudioChunker(
                 chunk_duration_ms=settings.AUDIO_FILE_CHUNK_DURATION_MS,
                 min_silence_len=settings.AUDIO_MIN_SILENCE_MS,
-                silence_thresh=settings.AUDIO_SILENCE_THRESH_DB
+                silence_thresh=settings.AUDIO_SILENCE_THRESH_DB,
             )
             chunks = chunker.chunk_by_duration(audio_segment)
             logger.info(f"Split into {len(chunks)} chunks")
@@ -1191,13 +1292,13 @@ async def narrate_text(
 
             logger.info(f"Chunked text into {len(chunks)} segments:")
             for i, chunk in enumerate(chunks):
-                logger.info(f"  Chunk {i+1}: {len(chunk)} chars: {chunk[:80]}{'...' if len(chunk) > 80 else ''}")
+                logger.info(f"  Chunk {i + 1}: {len(chunk)} chars: {chunk[:80]}{'...' if len(chunk) > 80 else ''}")
 
             audio_segments = []
             total_duration = 0.0
 
             for idx, chunk_text in enumerate(chunks):
-                logger.debug(f"Synthesizing chunk {idx+1}/{len(chunks)}: {chunk_text[:60]}...")
+                logger.debug(f"Synthesizing chunk {idx + 1}/{len(chunks)}: {chunk_text[:60]}...")
                 tts_result = await pipeline.tts.synthesize(
                     chunk_text, voice=voice_id, speed=request.speed or _config.speed, lang=lang
                 )
@@ -1268,7 +1369,11 @@ async def delete_narration(file_id: str, user_id: UUID = Depends(get_current_use
     return {"deleted": file_id}
 
 
-@router.post("/clone", response_model=VoiceCloneResponse, dependencies=[Depends(verify_api_key), Depends(check_rate_limit)])
+@router.post(
+    "/clone",
+    response_model=VoiceCloneResponse,
+    dependencies=[Depends(verify_api_key), Depends(check_rate_limit)],
+)
 async def clone_voice(
     file: UploadFile = File(..., description="Reference audio file"),
     name: str = Form(..., description="Name for the cloned voice"),
@@ -1307,7 +1412,7 @@ async def clone_voice(
         if duration_seconds > 120:
             raise HTTPException(status_code=400, detail="Audio too long (max 2min)")
 
-        safe_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', name)[:64]
+        safe_name = re.sub(r"[^a-zA-Z0-9_\-]", "_", name)[:64]
         if not safe_name:
             safe_name = "unnamed"
 
@@ -1348,19 +1453,23 @@ async def clone_voice(
         # If the server is missing HF_TOKEN or hasn't accepted the model
         # terms, the upstream lib raises a long descriptive error. Surface
         # a concise, actionable 503 to the client instead of a raw 500.
-        if 'voice cloning' in msg.lower() and 'weights' in msg.lower():
+        if "voice cloning" in msg.lower() and "weights" in msg.lower():
             raise HTTPException(
                 status_code=503,
                 detail=(
-                    'Voice cloning is unavailable: server missing HuggingFace '
-                    'credentials for kyutai/pocket-tts. Set HF_TOKEN in backend/.env '
-                    'and accept the model terms at https://huggingface.co/kyutai/pocket-tts.'
+                    "Voice cloning is unavailable: server missing HuggingFace "
+                    "credentials for kyutai/pocket-tts. Set HF_TOKEN in backend/.env "
+                    "and accept the model terms at https://huggingface.co/kyutai/pocket-tts."
                 ),
             )
-        raise HTTPException(status_code=500, detail='Voice cloning failed')
+        raise HTTPException(status_code=500, detail="Voice cloning failed")
 
 
-@router.get("/clones", response_model=ClonedVoicesResponse, dependencies=[Depends(verify_api_key), Depends(check_rate_limit)])
+@router.get(
+    "/clones",
+    response_model=ClonedVoicesResponse,
+    dependencies=[Depends(verify_api_key), Depends(check_rate_limit)],
+)
 async def get_cloned_voices() -> ClonedVoicesResponse:
     """Get all cloned voices."""
     pipeline = get_voice_pipeline()
@@ -1390,7 +1499,7 @@ async def get_cloned_voices() -> ClonedVoicesResponse:
 @router.delete("/clones/{clone_id}", dependencies=[Depends(verify_api_key), Depends(check_rate_limit)])
 async def delete_cloned_voice(clone_id: str) -> dict:
     """Delete a cloned voice."""
-    if not re.match(r'^clone_[a-f0-9]{8}$', clone_id):
+    if not re.match(r"^clone_[a-f0-9]{8}$", clone_id):
         raise HTTPException(status_code=400, detail="Invalid clone ID format")
 
     pipeline = get_voice_pipeline()

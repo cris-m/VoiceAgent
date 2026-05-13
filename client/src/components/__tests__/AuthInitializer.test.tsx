@@ -14,7 +14,6 @@ import { render, screen, waitFor, cleanup, act } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import React from 'react';
-import type { ReactNode } from 'react';
 
 // ---------------------------------------------------------------------------
 // Shared mock refresh function — replaced per test via mockReturnValue
@@ -72,14 +71,6 @@ function authReducerMini(
 
 function makeStore() {
   return configureStore({ reducer: { auth: authReducerMini } });
-}
-
-type TestStore = ReturnType<typeof makeStore>;
-
-function wrap(store: TestStore) {
-  return function Wrapper({ children }: { children: ReactNode }) {
-    return React.createElement(Provider, { store }, children);
-  };
 }
 
 // ---------------------------------------------------------------------------

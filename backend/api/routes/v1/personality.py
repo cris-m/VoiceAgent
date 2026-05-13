@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 
+from api.dependency import check_rate_limit, verify_api_key
 from schemas.personality import (
+    PersonalitiesResponse,
     Personality,
     PersonalityCreate,
     PersonalityUpdate,
-    PersonalitiesResponse,
 )
 from utils import get_logger
-from api.dependency import verify_api_key, check_rate_limit
 
 logger = get_logger(__name__)
 router = APIRouter(

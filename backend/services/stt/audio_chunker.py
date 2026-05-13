@@ -58,10 +58,7 @@ class AudioChunker:
 
             if end < audio_length and silence_points:
                 search_window = 5000  # ms
-                candidates = [
-                    sp for sp in silence_points
-                    if start < sp < end + search_window
-                ]
+                candidates = [sp for sp in silence_points if start < sp < end + search_window]
 
                 if candidates:
                     end = min(candidates, key=lambda sp: abs(sp - end))

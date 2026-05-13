@@ -1,5 +1,3 @@
-import pytest
-
 from api.routes.v1.voice import _is_incomplete_utterance
 
 

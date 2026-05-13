@@ -1,7 +1,8 @@
-import numpy as np
 from dataclasses import dataclass
-from typing import Tuple
 from enum import Enum
+from typing import Tuple
+
+import numpy as np
 
 from utils import get_logger
 

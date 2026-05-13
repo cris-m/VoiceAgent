@@ -38,7 +38,16 @@ const STYLE_TAGS = [
 export function MusicPage() {
   const navigate = useNavigate();
   const music = useMusic();
-  const audio = useAudioPlayer();
+  const {
+    audioRef,
+    setAudioRef,
+    progress,
+    currentTime,
+    isPlaying,
+    activeId,
+    handlePlayPause,
+    handleProgressClick,
+  } = useAudioPlayer();
   const [deletingTrackId, setDeletingTrackId] = useState<string | null>(null);
   const deletingTrack = music.tracks.find((t) => t.id === deletingTrackId);
 
@@ -174,7 +183,7 @@ export function MusicPage() {
                 deps; if the element didn't exist yet because the list
                 was empty, listeners never attached → time display stayed
                 frozen and play state was out of sync. */}
-            <audio ref={audio.setAudioRef} className="hidden" preload="none" />
+            <audio ref={setAudioRef} className="hidden" preload="none" />
 
             {music.tracks.length > 0 && (
               <div className="mt-10">
@@ -187,8 +196,8 @@ export function MusicPage() {
 
                 <div className="border border-[color:var(--color-border)] rounded-md divide-y divide-[color:var(--color-border)] overflow-hidden">
                   {music.tracks.map((track) => {
-                    const isActive = track.id === audio.activeId;
-                    const playing = isActive && audio.isPlaying;
+                    const isActive = track.id === activeId;
+                    const playing = isActive && isPlaying;
                     return (
                       <div
                         key={track.id}
@@ -202,7 +211,7 @@ export function MusicPage() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              audio.handlePlayPause(track.id, track.audioUrl);
+                              handlePlayPause(track.id, track.audioUrl);
                             }}
                             className={`w-7 h-7 rounded-md shrink-0 flex items-center justify-center transition-colors ${
                               playing
@@ -275,15 +284,15 @@ export function MusicPage() {
                                     : 'text-[color:var(--color-fg-muted)]'
                                 }`}
                               >
-                                {formatTime(audio.currentTime)}
+                                {formatTime(currentTime)}
                               </span>
                               <AudioWaveform
-                                audioRef={audio.audioRef}
+                                audioRef={audioRef}
                                 isPlaying={playing}
-                                progress={audio.progress}
+                                progress={progress}
                                 onSeek={(e) => {
                                   e.stopPropagation();
-                                  audio.handleProgressClick(e);
+                                  handleProgressClick(e);
                                 }}
                               />
                               <span className="text-[10px] font-mono tabular-nums text-[color:var(--color-fg-muted)]">

@@ -1,10 +1,10 @@
 import json
 import queue
 import threading
-import pytest
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from concurrent.futures import CancelledError
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 _PATCH_PIPELINE_CREATE = "api.routes.v1.voice.create_voice_pipeline_for_connection"
@@ -14,9 +14,10 @@ _PATCH_AGENT = "api.routes.v1.voice.get_agent_client"
 def _make_ws_pipeline():
     # stt_supports_streaming=True keeps transcript_collector from looping forever
     # to re-open batch sessions during the test window.
-    from services.voice_pipeline import VoicePipeline
-    from services.vad.silero import VADState
     import numpy as np
+
+    from services.vad.silero import VADState
+    from services.voice_pipeline import VoicePipeline
 
     pipeline = Mock(spec=VoicePipeline)
     pipeline.is_initialized = True
@@ -39,6 +40,7 @@ def _make_ws_pipeline():
     pipeline.tts = tts
 
     from services.stt.base import StreamingSession
+
     fake_session = MagicMock(spec=StreamingSession)
     fake_session.send_audio = AsyncMock()
     fake_session.close = AsyncMock()
@@ -47,7 +49,6 @@ def _make_ws_pipeline():
     pipeline.open_stt_stream = AsyncMock(return_value=fake_session)
 
     async def _synth_stream(text, voice=None, **kwargs):
-        import numpy as np
         yield {"type": "audio_info", "sample_rate": 16000}
         yield {"type": "audio", "audio": np.zeros(1600, dtype=np.float32)}
 
@@ -120,8 +121,8 @@ def test_ws_connects_and_sends_thread_id():
     agent = _make_ws_agent()
 
     from main import app
-    with patch(_PATCH_PIPELINE_CREATE, return_value=pipeline), \
-         patch(_PATCH_AGENT, return_value=agent):
+
+    with patch(_PATCH_PIPELINE_CREATE, return_value=pipeline), patch(_PATCH_AGENT, return_value=agent):
         client = TestClient(app)
         try:
             with client.websocket_connect("/api/v1/voice/ws") as ws:
@@ -139,8 +140,8 @@ def test_ws_sends_correct_thread_id_from_agent():
     agent = _make_ws_agent()
 
     from main import app
-    with patch(_PATCH_PIPELINE_CREATE, return_value=pipeline), \
-         patch(_PATCH_AGENT, return_value=agent):
+
+    with patch(_PATCH_PIPELINE_CREATE, return_value=pipeline), patch(_PATCH_AGENT, return_value=agent):
         client = TestClient(app)
         try:
             with client.websocket_connect("/api/v1/voice/ws") as ws:
@@ -157,8 +158,8 @@ def test_ws_text_input_receives_event_stream():
     collected = []
 
     from main import app
-    with patch(_PATCH_PIPELINE_CREATE, return_value=pipeline), \
-         patch(_PATCH_AGENT, return_value=agent):
+
+    with patch(_PATCH_PIPELINE_CREATE, return_value=pipeline), patch(_PATCH_AGENT, return_value=agent):
         client = TestClient(app)
         try:
             with client.websocket_connect("/api/v1/voice/ws") as ws:
@@ -170,9 +171,7 @@ def test_ws_text_input_receives_event_stream():
 
     types = {m.get("type") for m in collected if isinstance(m, dict) and "type" in m}
     expected = {"partial_transcript", "text_stream", "audio_info", "spoken_text"}
-    assert types & expected, (
-        f"None of {expected} received. Got types: {types}, messages: {collected[:8]}"
-    )
+    assert types & expected, f"None of {expected} received. Got types: {types}, messages: {collected[:8]}"
 
 
 def test_ws_text_input_tts_output_received():
@@ -181,8 +180,8 @@ def test_ws_text_input_tts_output_received():
     collected = []
 
     from main import app
-    with patch(_PATCH_PIPELINE_CREATE, return_value=pipeline), \
-         patch(_PATCH_AGENT, return_value=agent):
+
+    with patch(_PATCH_PIPELINE_CREATE, return_value=pipeline), patch(_PATCH_AGENT, return_value=agent):
         client = TestClient(app)
         try:
             with client.websocket_connect("/api/v1/voice/ws") as ws:
@@ -194,13 +193,12 @@ def test_ws_text_input_tts_output_received():
 
     types = {m.get("type") for m in collected if isinstance(m, dict)}
     has_binary = any(isinstance(m, dict) and "__binary__" in m for m in collected)
-    assert "audio_info" in types or has_binary, (
-        f"No TTS output received. types={types}, binary={has_binary}"
-    )
+    assert "audio_info" in types or has_binary, f"No TTS output received. types={types}, binary={has_binary}"
 
 
 def test_ws_wrong_api_key_rejected():
     from main import app
+
     with patch("config.settings.settings.API_KEY", "correct-secret"):
         client = TestClient(app)
         try:
