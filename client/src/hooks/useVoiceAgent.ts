@@ -323,7 +323,7 @@ export function useVoiceAgent(options: UseVoiceAgentOptions = {}): UseVoiceAgent
         wavBuffer.set(new Uint8Array(wavHeader), 0);
         wavBuffer.set(pcmBytes, wavHeader.byteLength);
 
-        const audioBuffer = await ctx.decodeAudioData(wavBuffer.buffer.slice(0));
+        const audioBuffer = await ctx.decodeAudioData(wavBuffer.buffer.slice(0) as ArrayBuffer);
 
         // After the await, an interrupt may have fired. Two checks:
         // 1. epoch — drop this decoded buffer; it belongs to a cancelled response.
@@ -348,7 +348,7 @@ export function useVoiceAgent(options: UseVoiceAgentOptions = {}): UseVoiceAgent
         // Audio decode failed; skip this chunk
       }
     }
-  }, [setIsPlaying, setStatus]);
+  }, [dispatch]);
 
   scheduleAudioRef.current = scheduleAudio;
 
@@ -528,19 +528,9 @@ export function useVoiceAgent(options: UseVoiceAgentOptions = {}): UseVoiceAgent
     }
   }, [
     startScheduler,
-    setStatus,
-    addMessage,
-    setCurrentAiMessageId,
-    setCurrentPartialId,
-    appendToMessage,
-    updateMessage,
-    setSampleRate,
-    setIsPlaying,
-    setCurrentThreadId,
-    addThread,
-    markTitleSet,
-    titleSetForThreads,
+    stopScheduler,
     dispatch,
+    titleSetForThreads,
   ]);
 
   const scheduleReconnect = useCallback(() => {
@@ -695,7 +685,7 @@ export function useVoiceAgent(options: UseVoiceAgentOptions = {}): UseVoiceAgent
               );
 
               try {
-                wsRef.current.send(int16Data.buffer);
+                wsRef.current.send(int16Data.buffer as ArrayBuffer);
               } catch {
                 // WebSocket may be closing; ignore and let reconnect handle it
                 return;

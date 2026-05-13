@@ -35,7 +35,7 @@ export function TranscribePage() {
     return () => {
       transcriptions.forEach(t => URL.revokeObjectURL(t.audioUrl));
     };
-  }, []);
+  }, [transcriptions]);
 
   useEffect(() => {
     const audio = audioRef.current;
