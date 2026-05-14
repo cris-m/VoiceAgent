@@ -74,9 +74,28 @@ select = ["E", "F", "I", "W"]
 "api/routes/v1/personality.py" = ["E501"]
 # Patches must run BEFORE `from main import app` and similar order-sensitive imports.
 "api/routes/v1/voice.py" = ["E402"]
-"tests/conftest.py" = ["E402"]
+# conftest.py patches Redis and the rate limiter before importing the app,
+# which breaks both E402 (import order) and I001 (isort) for that block.
+"tests/conftest.py" = ["E402", "I001"]
 # Long URLs and assertion messages live in tests.
 "tests/*.py" = ["E501"]
+
+[tool.ruff.lint.isort]
+# Be explicit about local modules so the dev / CI environments classify
+# them identically regardless of which packages are installed.
+known-first-party = [
+    "api",
+    "cli",
+    "config",
+    "core",
+    "main",
+    "models",
+    "schemas",
+    "services",
+    "utils",
+    "websocket",
+    "tests",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
