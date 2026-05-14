@@ -29,7 +29,8 @@ class MusicGenService(BaseMusicService):
             loop = asyncio.get_event_loop()
             self.logger.info("Loading MusicGen-small model...")
             self._pipeline = await loop.run_in_executor(
-                None, lambda: pipeline("text-to-audio", model="facebook/musicgen-small", device="cpu")
+                None,
+                lambda: pipeline("text-to-audio", model="facebook/musicgen-small", device="cpu"),
             )
             self.logger.info("MusicGen music service ready")
         except ImportError:
@@ -43,7 +44,12 @@ class MusicGenService(BaseMusicService):
         return self._pipeline is not None or self._use_mock
 
     async def generate(
-        self, prompt: str, style_tags: list[str], duration: float, tempo: int | None, seed: int | None
+        self,
+        prompt: str,
+        style_tags: list[str],
+        duration: float,
+        tempo: int | None,
+        seed: int | None,
     ) -> tuple[np.ndarray, int]:
         if self._pipeline is None and not self._use_mock:
             raise RuntimeError("Music generation unavailable. Install dependencies: pip install transformers torch")

@@ -90,7 +90,10 @@ class SileroVAD:
             logger.info("Silero VAD model loaded (silero-vad package)")
         except ImportError:
             self._model, _ = torch.hub.load(
-                repo_or_dir="snakers4/silero-vad", model="silero_vad", force_reload=False, trust_repo=True
+                repo_or_dir="snakers4/silero-vad",
+                model="silero_vad",
+                force_reload=False,
+                trust_repo=True,
             )
             logger.info("Silero VAD model loaded (torch.hub)")
 

@@ -53,6 +53,7 @@ export function ConverseLayout() {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useConverseContext() {
   return useOutletContext<ConverseContextType>();
 }

@@ -17,7 +17,10 @@ def _auth_header(token: str) -> dict:
 async def test_narrate_empty_text_returns_422(
     async_client: AsyncClient, auth_user, mock_voice_pipeline, mock_agent_client
 ):
-    with patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline), patch(_PATCH_AGENT, return_value=mock_agent_client):
+    with (
+        patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline),
+        patch(_PATCH_AGENT, return_value=mock_agent_client),
+    ):
         resp = await async_client.post(
             "/api/v1/voice/narrate",
             json={"text": ""},
@@ -30,7 +33,10 @@ async def test_narrate_empty_text_returns_422(
 async def test_narrate_missing_text_returns_422(
     async_client: AsyncClient, auth_user, mock_voice_pipeline, mock_agent_client
 ):
-    with patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline), patch(_PATCH_AGENT, return_value=mock_agent_client):
+    with (
+        patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline),
+        patch(_PATCH_AGENT, return_value=mock_agent_client),
+    ):
         resp = await async_client.post(
             "/api/v1/voice/narrate",
             json={},
@@ -41,7 +47,10 @@ async def test_narrate_missing_text_returns_422(
 
 @pytest.mark.asyncio
 async def test_narrate_requires_auth(async_client: AsyncClient, mock_voice_pipeline, mock_agent_client):
-    with patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline), patch(_PATCH_AGENT, return_value=mock_agent_client):
+    with (
+        patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline),
+        patch(_PATCH_AGENT, return_value=mock_agent_client),
+    ):
         resp = await async_client.post(
             "/api/v1/voice/narrate",
             json={"text": "hello"},
@@ -80,7 +89,10 @@ async def test_narrate_valid_text_returns_200_with_narration_id(
 async def test_list_narrations_returns_list(
     async_client: AsyncClient, auth_user, mock_voice_pipeline, mock_agent_client
 ):
-    with patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline), patch(_PATCH_AGENT, return_value=mock_agent_client):
+    with (
+        patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline),
+        patch(_PATCH_AGENT, return_value=mock_agent_client),
+    ):
         resp = await async_client.get(
             "/api/v1/voice/narrations",
             headers=_auth_header(auth_user["token"]),
@@ -91,7 +103,10 @@ async def test_list_narrations_returns_list(
 
 @pytest.mark.asyncio
 async def test_list_narrations_requires_auth(async_client: AsyncClient, mock_voice_pipeline, mock_agent_client):
-    with patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline), patch(_PATCH_AGENT, return_value=mock_agent_client):
+    with (
+        patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline),
+        patch(_PATCH_AGENT, return_value=mock_agent_client),
+    ):
         resp = await async_client.get("/api/v1/voice/narrations")
         assert resp.status_code in (401, 403)
 
@@ -100,7 +115,10 @@ async def test_list_narrations_requires_auth(async_client: AsyncClient, mock_voi
 async def test_delete_nonexistent_narration_returns_404(
     async_client: AsyncClient, auth_user, mock_voice_pipeline, mock_agent_client
 ):
-    with patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline), patch(_PATCH_AGENT, return_value=mock_agent_client):
+    with (
+        patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline),
+        patch(_PATCH_AGENT, return_value=mock_agent_client),
+    ):
         resp = await async_client.delete(
             "/api/v1/voice/narrations/nonexistent-id",
             headers=_auth_header(auth_user["token"]),
@@ -110,7 +128,10 @@ async def test_delete_nonexistent_narration_returns_404(
 
 @pytest.mark.asyncio
 async def test_delete_narration_requires_auth(async_client: AsyncClient, mock_voice_pipeline, mock_agent_client):
-    with patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline), patch(_PATCH_AGENT, return_value=mock_agent_client):
+    with (
+        patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline),
+        patch(_PATCH_AGENT, return_value=mock_agent_client),
+    ):
         resp = await async_client.delete("/api/v1/voice/narrations/some-id")
         assert resp.status_code in (401, 403)
 

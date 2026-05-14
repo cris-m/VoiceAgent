@@ -1071,7 +1071,11 @@ async def get_config():
     }
 
 
-@router.put("/config", response_model=VoiceConfig, dependencies=[Depends(verify_api_key), Depends(check_rate_limit)])
+@router.put(
+    "/config",
+    response_model=VoiceConfig,
+    dependencies=[Depends(verify_api_key), Depends(check_rate_limit)],
+)
 async def update_config(update: VoiceConfigUpdate) -> VoiceConfig:
     """Update voice configuration."""
     global _config
@@ -1085,7 +1089,11 @@ async def update_config(update: VoiceConfigUpdate) -> VoiceConfig:
     return _config
 
 
-@router.get("/voices", response_model=VoicesResponse, dependencies=[Depends(verify_api_key), Depends(check_rate_limit)])
+@router.get(
+    "/voices",
+    response_model=VoicesResponse,
+    dependencies=[Depends(verify_api_key), Depends(check_rate_limit)],
+)
 async def get_voices() -> VoicesResponse:
     """Get available TTS voices — catalog + cloned voices in one list.
 
@@ -1157,7 +1165,9 @@ async def get_languages() -> LanguagesResponse:
         if isinstance(lang, dict):
             languages.append(
                 LanguageInfo(
-                    code=lang.get("code", ""), name=lang.get("name", ""), native_name=lang.get("native_name", "")
+                    code=lang.get("code", ""),
+                    name=lang.get("name", ""),
+                    native_name=lang.get("native_name", ""),
                 )
             )
         else:
@@ -1387,7 +1397,10 @@ async def clone_voice(
         await pipeline.initialize()
 
     if not _supports_cloning(pipeline.tts):
-        raise HTTPException(status_code=400, detail="Voice cloning requires Pocket TTS (set TTS_PROVIDER=pocket_tts)")
+        raise HTTPException(
+            status_code=400,
+            detail="Voice cloning requires Pocket TTS (set TTS_PROVIDER=pocket_tts)",
+        )
 
     MAX_CLONE_BYTES = 20 * 1024 * 1024
     clone_chunks = []
@@ -1477,7 +1490,10 @@ async def get_cloned_voices() -> ClonedVoicesResponse:
         await pipeline.initialize()
 
     if not _supports_cloning(pipeline.tts):
-        raise HTTPException(status_code=400, detail="Voice cloning requires Pocket TTS (set TTS_PROVIDER=pocket_tts)")
+        raise HTTPException(
+            status_code=400,
+            detail="Voice cloning requires Pocket TTS (set TTS_PROVIDER=pocket_tts)",
+        )
 
     cloned = await pipeline.tts.get_cloned_voices()
     voices = [
@@ -1507,7 +1523,10 @@ async def delete_cloned_voice(clone_id: str) -> dict:
         await pipeline.initialize()
 
     if not _supports_cloning(pipeline.tts):
-        raise HTTPException(status_code=400, detail="Voice cloning requires Pocket TTS (set TTS_PROVIDER=pocket_tts)")
+        raise HTTPException(
+            status_code=400,
+            detail="Voice cloning requires Pocket TTS (set TTS_PROVIDER=pocket_tts)",
+        )
 
     deleted = await pipeline.tts.delete_cloned_voice(clone_id)
     if not deleted:

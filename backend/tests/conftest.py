@@ -123,7 +123,12 @@ async def authenticated_user(async_client, test_user):
     response = await async_client.post("/api/v1/auth/register", json=test_user)
     assert response.status_code == 201, f"Registration failed: {response.text}"
     data = response.json()
-    return {"user": test_user, "token": data["access_token"], "user_id": data["user_id"], "username": data["username"]}
+    return {
+        "user": test_user,
+        "token": data["access_token"],
+        "user_id": data["user_id"],
+        "username": data["username"],
+    }
 
 
 @pytest.fixture
@@ -179,7 +184,12 @@ def mock_voice_pipeline():
     tts.default_voice = "alba"
 
     default_voice = Voice(
-        id="alba", name="Alba (F)", language="en", gender="female", description="Test voice", metadata={}
+        id="alba",
+        name="Alba (F)",
+        language="en",
+        gender="female",
+        description="Test voice",
+        metadata={},
     )
 
     tts.get_voices = AsyncMock(return_value=[default_voice])

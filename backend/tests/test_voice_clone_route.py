@@ -146,7 +146,12 @@ async def test_list_clones_happy_path(async_client: AsyncClient, mock_voice_pipe
     from services.tts.base import Voice
 
     cloned_voice = Voice(
-        id="clone_ab12cd34", name="My Clone", language="en", gender=None, description=None, metadata={"is_cloned": True}
+        id="clone_ab12cd34",
+        name="My Clone",
+        language="en",
+        gender=None,
+        description=None,
+        metadata={"is_cloned": True},
     )
     mock_voice_pipeline.tts.get_cloned_voices = AsyncMock(return_value=[cloned_voice])
 

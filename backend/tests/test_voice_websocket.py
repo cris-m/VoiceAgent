@@ -122,7 +122,10 @@ def test_ws_connects_and_sends_thread_id():
 
     from main import app
 
-    with patch(_PATCH_PIPELINE_CREATE, return_value=pipeline), patch(_PATCH_AGENT, return_value=agent):
+    with (
+        patch(_PATCH_PIPELINE_CREATE, return_value=pipeline),
+        patch(_PATCH_AGENT, return_value=agent),
+    ):
         client = TestClient(app)
         try:
             with client.websocket_connect("/api/v1/voice/ws") as ws:
@@ -141,7 +144,10 @@ def test_ws_sends_correct_thread_id_from_agent():
 
     from main import app
 
-    with patch(_PATCH_PIPELINE_CREATE, return_value=pipeline), patch(_PATCH_AGENT, return_value=agent):
+    with (
+        patch(_PATCH_PIPELINE_CREATE, return_value=pipeline),
+        patch(_PATCH_AGENT, return_value=agent),
+    ):
         client = TestClient(app)
         try:
             with client.websocket_connect("/api/v1/voice/ws") as ws:
@@ -159,7 +165,10 @@ def test_ws_text_input_receives_event_stream():
 
     from main import app
 
-    with patch(_PATCH_PIPELINE_CREATE, return_value=pipeline), patch(_PATCH_AGENT, return_value=agent):
+    with (
+        patch(_PATCH_PIPELINE_CREATE, return_value=pipeline),
+        patch(_PATCH_AGENT, return_value=agent),
+    ):
         client = TestClient(app)
         try:
             with client.websocket_connect("/api/v1/voice/ws") as ws:
@@ -181,7 +190,10 @@ def test_ws_text_input_tts_output_received():
 
     from main import app
 
-    with patch(_PATCH_PIPELINE_CREATE, return_value=pipeline), patch(_PATCH_AGENT, return_value=agent):
+    with (
+        patch(_PATCH_PIPELINE_CREATE, return_value=pipeline),
+        patch(_PATCH_AGENT, return_value=agent),
+    ):
         client = TestClient(app)
         try:
             with client.websocket_connect("/api/v1/voice/ws") as ws:

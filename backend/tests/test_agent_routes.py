@@ -34,7 +34,10 @@ class TestThreadOperations:
         with patch("api.routes.v1.agent.get_agent_client") as mock_client:
             mock_instance = AsyncMock()
             mock_instance.list_threads = AsyncMock(
-                return_value=[{"thread_id": "t1", "metadata": {}}, {"thread_id": "t2", "metadata": {}}]
+                return_value=[
+                    {"thread_id": "t1", "metadata": {}},
+                    {"thread_id": "t2", "metadata": {}},
+                ]
             )
             mock_client.return_value = mock_instance
 

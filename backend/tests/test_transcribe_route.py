@@ -37,7 +37,10 @@ async def _relaxed_client(mock_pipeline, mock_agent):
 async def test_transcribe_txt_file_rejected(mock_voice_pipeline, mock_agent_client):
     # Production bug: route raises ValueError instead of HTTPException, so this
     # arrives as 500. Test accepts 400/422/500 until the route is fixed.
-    with patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline), patch(_PATCH_AGENT, return_value=mock_agent_client):
+    with (
+        patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline),
+        patch(_PATCH_AGENT, return_value=mock_agent_client),
+    ):
         async with await _relaxed_client(mock_voice_pipeline, mock_agent_client) as client:
             resp = await client.post(
                 "/api/v1/voice/transcribe",
@@ -48,7 +51,10 @@ async def test_transcribe_txt_file_rejected(mock_voice_pipeline, mock_agent_clie
 
 @pytest.mark.asyncio
 async def test_transcribe_empty_file_rejected(mock_voice_pipeline, mock_agent_client):
-    with patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline), patch(_PATCH_AGENT, return_value=mock_agent_client):
+    with (
+        patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline),
+        patch(_PATCH_AGENT, return_value=mock_agent_client),
+    ):
         async with await _relaxed_client(mock_voice_pipeline, mock_agent_client) as client:
             resp = await client.post(
                 "/api/v1/voice/transcribe",
@@ -74,7 +80,10 @@ async def test_transcribe_valid_wav_returns_transcript(
 
     wav_data = _make_wav_bytes(duration_seconds=0.5)
 
-    with patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline), patch(_PATCH_AGENT, return_value=mock_agent_client):
+    with (
+        patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline),
+        patch(_PATCH_AGENT, return_value=mock_agent_client),
+    ):
         resp = await async_client.post(
             "/api/v1/voice/transcribe",
             files={"file": ("audio.wav", wav_data, "audio/wav")},
@@ -101,7 +110,10 @@ async def test_transcribe_returns_language_field(async_client: AsyncClient, mock
 
     wav_data = _make_wav_bytes(duration_seconds=0.3)
 
-    with patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline), patch(_PATCH_AGENT, return_value=mock_agent_client):
+    with (
+        patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline),
+        patch(_PATCH_AGENT, return_value=mock_agent_client),
+    ):
         resp = await async_client.post(
             "/api/v1/voice/transcribe",
             files={"file": ("audio.wav", wav_data, "audio/wav")},
@@ -114,7 +126,10 @@ async def test_transcribe_returns_language_field(async_client: AsyncClient, mock
 
 @pytest.mark.asyncio
 async def test_transcribe_no_file_returns_422(async_client: AsyncClient, mock_voice_pipeline, mock_agent_client):
-    with patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline), patch(_PATCH_AGENT, return_value=mock_agent_client):
+    with (
+        patch(_PATCH_PIPELINE, return_value=mock_voice_pipeline),
+        patch(_PATCH_AGENT, return_value=mock_agent_client),
+    ):
         resp = await async_client.post("/api/v1/voice/transcribe")
         assert resp.status_code == 422
 

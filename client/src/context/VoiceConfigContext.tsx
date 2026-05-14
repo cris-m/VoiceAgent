@@ -225,6 +225,7 @@ export function VoiceConfigProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useVoiceConfig(): VoiceConfigContextValue {
   const ctx = useContext(VoiceConfigContext);
   if (!ctx) throw new Error('useVoiceConfig must be used within a VoiceConfigProvider');

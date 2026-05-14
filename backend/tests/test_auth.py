@@ -43,21 +43,24 @@ class TestRegistration:
     @pytest.mark.asyncio
     async def test_empty_username_rejected(self, async_client: AsyncClient):
         response = await async_client.post(
-            "/api/v1/auth/register", json={"username": "", "email": "test@example.com", "password": "SecurePass123"}
+            "/api/v1/auth/register",
+            json={"username": "", "email": "test@example.com", "password": "SecurePass123"},
         )
         assert response.status_code == 422
 
     @pytest.mark.asyncio
     async def test_invalid_email_rejected(self, async_client: AsyncClient):
         response = await async_client.post(
-            "/api/v1/auth/register", json={"username": "testuser", "email": "not-an-email", "password": "SecurePass123"}
+            "/api/v1/auth/register",
+            json={"username": "testuser", "email": "not-an-email", "password": "SecurePass123"},
         )
         assert response.status_code == 422
 
     @pytest.mark.asyncio
     async def test_short_password_rejected(self, async_client: AsyncClient):
         response = await async_client.post(
-            "/api/v1/auth/register", json={"username": "testuser", "email": "test@example.com", "password": "short"}
+            "/api/v1/auth/register",
+            json={"username": "testuser", "email": "test@example.com", "password": "short"},
         )
         assert response.status_code == 422
 
@@ -67,7 +70,8 @@ class TestLogin:
     async def test_successful_login(self, async_client: AsyncClient, test_user):
         await async_client.post("/api/v1/auth/register", json=test_user)
         response = await async_client.post(
-            "/api/v1/auth/login", json={"username": test_user["username"], "password": test_user["password"]}
+            "/api/v1/auth/login",
+            json={"username": test_user["username"], "password": test_user["password"]},
         )
         assert response.status_code == 200
         data = response.json()
@@ -79,7 +83,8 @@ class TestLogin:
     async def test_login_wrong_password(self, async_client: AsyncClient, test_user):
         await async_client.post("/api/v1/auth/register", json=test_user)
         response = await async_client.post(
-            "/api/v1/auth/login", json={"username": test_user["username"], "password": "WrongPassword123"}
+            "/api/v1/auth/login",
+            json={"username": test_user["username"], "password": "WrongPassword123"},
         )
         assert response.status_code == 401
         assert "Invalid username or password" in response.json()["error"]["message"]
@@ -221,17 +226,20 @@ class TestAuthFlow:
         assert reg_response.status_code == 201
 
         login_response = await async_client.post(
-            "/api/v1/auth/login", json={"username": test_user["username"], "password": test_user["password"]}
+            "/api/v1/auth/login",
+            json={"username": test_user["username"], "password": test_user["password"]},
         )
         assert login_response.status_code == 200
 
         me_response = await async_client.get(
-            "/api/v1/auth/me", headers={"Authorization": f"Bearer {login_response.json()['access_token']}"}
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {login_response.json()['access_token']}"},
         )
         assert me_response.status_code == 200
 
         logout_response = await async_client.post(
-            "/api/v1/auth/logout", headers={"Authorization": f"Bearer {login_response.json()['access_token']}"}
+            "/api/v1/auth/logout",
+            headers={"Authorization": f"Bearer {login_response.json()['access_token']}"},
         )
         assert logout_response.status_code == 200
 

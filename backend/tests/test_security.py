@@ -5,7 +5,8 @@ from httpx import AsyncClient
 @pytest.mark.asyncio
 async def test_registration_validation_empty_username(async_client: AsyncClient):
     response = await async_client.post(
-        "/api/v1/auth/register", json={"username": "", "email": "test@example.com", "password": "ValidPass123!"}
+        "/api/v1/auth/register",
+        json={"username": "", "email": "test@example.com", "password": "ValidPass123!"},
     )
     assert response.status_code == 422
 
@@ -13,7 +14,8 @@ async def test_registration_validation_empty_username(async_client: AsyncClient)
 @pytest.mark.asyncio
 async def test_registration_validation_weak_password(async_client: AsyncClient):
     response = await async_client.post(
-        "/api/v1/auth/register", json={"username": "testuser", "email": "test@example.com", "password": "short"}
+        "/api/v1/auth/register",
+        json={"username": "testuser", "email": "test@example.com", "password": "short"},
     )
     assert response.status_code in [422, 400]
 
@@ -21,7 +23,8 @@ async def test_registration_validation_weak_password(async_client: AsyncClient):
 @pytest.mark.asyncio
 async def test_registration_validation_invalid_email(async_client: AsyncClient):
     response = await async_client.post(
-        "/api/v1/auth/register", json={"username": "testuser", "email": "invalid-email", "password": "ValidPass123!"}
+        "/api/v1/auth/register",
+        json={"username": "testuser", "email": "invalid-email", "password": "ValidPass123!"},
     )
     assert response.status_code == 422
 

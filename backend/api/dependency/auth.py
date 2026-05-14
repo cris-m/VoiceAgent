@@ -10,7 +10,9 @@ from services.token_blacklist import TokenBlacklistService
 security = HTTPBearer()
 
 
-async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> UUID:
+async def get_current_user_id(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> UUID:
     token = credentials.credentials
 
     payload = AuthService.verify_token(token)
