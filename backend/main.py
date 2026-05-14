@@ -1,5 +1,11 @@
 import os
+import sys
 from contextlib import asynccontextmanager
+
+# Make backend/ importable from any working directory. Without this, CI
+# environments that invoke pytest with a non-default sys.path can fail to
+# resolve `models`, `api`, etc. as top-level packages.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -106,6 +112,7 @@ def create_app() -> FastAPI:
     register_routers(app)
 
     static_dir = os.path.join(os.path.dirname(__file__), "static")
+    os.makedirs(static_dir, exist_ok=True)
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     @app.get("/")
