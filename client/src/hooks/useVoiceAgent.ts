@@ -26,10 +26,6 @@ import {
 
 const TARGET_SAMPLE_RATE = 16000;
 
-const WAV_HEADER_SIZE = 44;
-const BITS_PER_SAMPLE = 16;
-const NUM_CHANNELS = 1;
-
 const audioProcessorCode = `
 class AudioCaptureProcessor extends AudioWorkletProcessor {
   constructor() {
@@ -159,37 +155,6 @@ async function resampleAudio(
   return int16Data;
 }
 
-function createWavHeader(pcmLength: number, sampleRate: number): ArrayBuffer {
-  const buffer = new ArrayBuffer(WAV_HEADER_SIZE);
-  const view = new DataView(buffer);
-  const writeString = (offset: number, str: string) => {
-    for (let i = 0; i < str.length; i++) {
-      view.setUint8(offset + i, str.charCodeAt(i));
-    }
-  };
-
-  const bytesPerSample = BITS_PER_SAMPLE / 8;
-  const byteRate = sampleRate * NUM_CHANNELS * bytesPerSample;
-  const blockAlign = NUM_CHANNELS * bytesPerSample;
-  const dataSize = pcmLength * NUM_CHANNELS * bytesPerSample;
-
-  writeString(0, 'RIFF');
-  view.setUint32(4, 36 + dataSize, true);
-  writeString(8, 'WAVE');
-  writeString(12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, NUM_CHANNELS, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, byteRate, true);
-  view.setUint16(32, blockAlign, true);
-  view.setUint16(34, BITS_PER_SAMPLE, true);
-  writeString(36, 'data');
-  view.setUint32(40, dataSize, true);
-
-  return buffer;
-}
-
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
 export function useVoiceAgent(options: UseVoiceAgentOptions = {}): UseVoiceAgentReturn {
@@ -245,7 +210,8 @@ export function useVoiceAgent(options: UseVoiceAgentOptions = {}): UseVoiceAgent
   const playbackQueueRef = useRef<Int16Array[]>([]);
   const nextPlayTimeRef = useRef(0);
   const schedulerIntervalRef = useRef<number | null>(null);
-  const MAX_PLAYBACK_QUEUE_ITEMS = 500;  // Buffer ~5-10 seconds at typical bitrate (increased from 50)
+  // WS → AudioContext jitter buffer. 150 × 100ms ≈ 15s headroom.
+  const MAX_PLAYBACK_QUEUE_ITEMS = 150;
   const queueOverflowCountRef = useRef(0);
   const scheduleAudioRef = useRef<(() => Promise<void>) | undefined>(undefined);
   // Bubble is closed only when BOTH llmDone is true AND playback has drained
@@ -316,21 +282,16 @@ export function useVoiceAgent(options: UseVoiceAgentOptions = {}): UseVoiceAgent
         return;
       }
 
+      if (epochAtStart !== interruptEpochRef.current) return;
+      if ((ctx.state as string) === 'closed') return;
+
       try {
-        const wavHeader = createWavHeader(audioData.length, sampleRate);
-        const pcmBytes = new Uint8Array(audioData.buffer, audioData.byteOffset, audioData.byteLength);
-        const wavBuffer = new Uint8Array(wavHeader.byteLength + pcmBytes.byteLength);
-        wavBuffer.set(new Uint8Array(wavHeader), 0);
-        wavBuffer.set(pcmBytes, wavHeader.byteLength);
-
-        const audioBuffer = await ctx.decodeAudioData(wavBuffer.buffer.slice(0) as ArrayBuffer);
-
-        // After the await, an interrupt may have fired. Two checks:
-        // 1. epoch — drop this decoded buffer; it belongs to a cancelled response.
-        // 2. ctx state — outputContextRef may have been swapped; the captured
-        //    `ctx` may be closing. start() on a closed context throws silently.
-        if (epochAtStart !== interruptEpochRef.current) return;
-        if ((ctx.state as string) === 'closed') return;
+        // Synchronous Int16 PCM → AudioBuffer (no WAV header, no decodeAudioData).
+        const audioBuffer = ctx.createBuffer(1, audioData.length, sampleRate);
+        const channel = audioBuffer.getChannelData(0);
+        for (let i = 0; i < audioData.length; i++) {
+          channel[i] = audioData[i] / 32768;
+        }
 
         const sourceNode = ctx.createBufferSource();
         sourceNode.buffer = audioBuffer;
@@ -343,9 +304,11 @@ export function useVoiceAgent(options: UseVoiceAgentOptions = {}): UseVoiceAgent
         };
         sourceNode.start(nextPlayTimeRef.current);
         nextPlayTimeRef.current += audioBuffer.duration;
-        dispatch(setIsPlaying(true));
+        if (!storeState.isPlaying) {
+          dispatch(setIsPlaying(true));
+        }
       } catch {
-        // Audio decode failed; skip this chunk
+        // AudioBuffer creation failed; skip this chunk
       }
     }
   }, [dispatch]);
@@ -489,18 +452,11 @@ export function useVoiceAgent(options: UseVoiceAgentOptions = {}): UseVoiceAgent
           playbackQueueRef.current = [];
           queueOverflowCountRef.current = 0;
 
-          // Stop the 50ms scheduler interval. It will restart when the next
-          // binary audio frame arrives (handleMessage binary branch calls
-          // startScheduler()) — until then there's nothing to schedule.
+          // Restarts when the next binary audio frame arrives.
           stopScheduler();
 
-          // Recreate the output context to fully cancel any in-flight async
-          // operations (decodeAudioData on the old context, etc.).
-          if (outputContextRef.current) {
-            outputContextRef.current.close().catch(() => {});
-            outputContextRef.current = new AudioContext();
-          }
-
+          // Do NOT recreate the AudioContext — sources already stopped,
+          // synchronous playback has no in-flight async work to cancel.
           nextPlayTimeRef.current = 0;
           // Reset llmDoneRef so the NEXT response's drain logic doesn't
           // immediately tear down playback because of stale state.

@@ -1,9 +1,3 @@
-"""File storage utilities for narrations and music WAVs.
-
-Saves audio files to backend/static/ with JSON metadata sidecars.
-Files are served directly by FastAPI at /static/{type}/{uuid}.wav
-"""
-
 import io
 import json
 import uuid

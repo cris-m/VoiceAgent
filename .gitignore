@@ -40,6 +40,10 @@ Thumbs.db
 # package, not weights; we want that tracked.
 /models/
 .langgraph_api/
+# Generated narrations / music / cloned voices live here at runtime.
+backend/static/narrations/
+backend/static/music/
+backend/static/clones/
 
 # Node / Frontend
 node_modules/

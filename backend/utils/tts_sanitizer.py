@@ -1,21 +1,3 @@
-"""Professional TTS text sanitization.
-
-Removes characters and patterns that Text-To-Speech engines struggle with:
-- Emoji and Unicode symbols
-- Control characters and zero-width characters
-- Excessive punctuation
-- HTML entities and tags
-- Malformed brackets/parentheses
-- Excessive whitespace
-
-Preserves:
-- Contractions (can't, don't, etc.)
-- Hyphenated words (well-known, state-of-the-art)
-- Numbers and decimal points
-- Common punctuation (. ! ?)
-- Ellipsis patterns (... or …)
-"""
-
 import re
 import unicodedata
 

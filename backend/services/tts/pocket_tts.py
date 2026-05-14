@@ -1,12 +1,3 @@
-"""Pocket TTS — Kyutai's 100M-parameter local TTS with true audio streaming.
-
-Runs on CPU at ~200ms first-byte latency and ~6x real-time on Apple Silicon.
-Supports voice cloning via audio prompts and cached safetensors embeddings.
-
-Set TTS_PROVIDER=pocket_tts in .env to enable.
-Install with: uv add pocket-tts
-"""
-
 import asyncio
 from pathlib import Path
 from typing import AsyncIterator, Dict, List, Optional
@@ -16,9 +7,6 @@ import numpy as np
 from services.audio.base import AudioChunk
 from services.tts.base import BaseTTS, Language, TTSConfig, TTSResult, Voice, VoiceCloningMixin
 
-# Character-driven preview lines. Each one is ~2 short sentences (under
-# 40 tokens for Pocket TTS chunk safety) and aims to showcase the voice's
-# texture, pace, and personality — not just say "hi I'm <name>".
 POCKET_VOICES = [
     Voice(
         id="alba",

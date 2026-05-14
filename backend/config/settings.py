@@ -32,8 +32,9 @@ class Settings(BaseSettings):
 
     # Whisper-specific (local faster-whisper)
     # Options: tiny, base, small, medium, large-v3, distil-large-v3
-    # distil-large-v3 is 6× faster than large-v3 at near-identical WER.
-    WHISPER_MODEL: str = Field(default="small")
+    # distil-large-v3 is 6x faster than large-v3 at near-identical WER, and
+    # is the best speed/accuracy tradeoff on CPU.
+    WHISPER_MODEL: str = Field(default="distil-large-v3")
     WHISPER_DEVICE: str = Field(default="cpu")
     WHISPER_COMPUTE_TYPE: str = Field(default="int8")
     WHISPER_CPU_THREADS: int = Field(default=8)

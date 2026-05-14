@@ -167,7 +167,7 @@ from services.agent import get_agent_client
 from services.stt.audio_chunker import AudioChunker
 from services.tts.base import BaseTTS
 from services.tts.text_chunker import TextChunker
-from services.vad.silero import VADState
+from services.vad.webrtc import create_webrtc_vad
 from services.voice_pipeline import create_voice_pipeline_for_connection, get_voice_pipeline
 from utils import get_logger
 from utils.file_storage import delete_file, list_files, save_audio_file
@@ -426,14 +426,15 @@ async def voice_websocket(websocket: WebSocket) -> None:
     connection_speed_ref: dict = {"value": _config.speed}
     connection_language_ref: dict = {"value": _config.language}
     thread_title_set_ref = {"value": False}
-    # Two-phase barge-in: stamps the moment VAD first reports SPEECH_START
-    # during TTS playback. The interrupt only fires if speech continues for
-    # BARGE_IN_HOLD_MS — short bursts (coughs, "uh-huh", "yeah") get filtered.
     barge_in_candidate_ref: dict = {"value": None}
 
     stt_session = await pipeline.open_stt_stream(sample_rate=sample_rate)
     stt_supports_streaming = pipeline.stt_supports_streaming
     logger.info(f"STT session opened (streaming={stt_supports_streaming}, provider={type(pipeline.stt).__name__})")
+
+    # WebRTC fast-trigger for barge-in; Silero stays as end-of-turn arm.
+    fast_vad = create_webrtc_vad(sample_rate=sample_rate, frame_ms=20, aggressiveness=1)
+    fast_speech_run_ms_ref: dict = {"value": 0}
 
     async def audio_receiver() -> None:
         try:
@@ -484,67 +485,81 @@ async def voice_websocket(websocket: WebSocket) -> None:
 
                 audio_array = np.frombuffer(data, dtype=np.int16)
 
-                await stt_session.send_audio(audio_array)
+                # Batch STT (Whisper) gets the VAD-trimmed buffer at SPEECH_END
+                # instead of every chunk — avoids transcribing leading silence.
+                if stt_supports_streaming:
+                    await stt_session.send_audio(audio_array)
 
                 vad_event, is_echo = pipeline.process_audio_chunk(audio_array)
                 prob = pipeline.get_speech_probability(audio_array)
 
-                # Two-phase barge-in: stamp on speech-start, confirm after
-                # BARGE_IN_HOLD_MS of continuous speech. Do NOT gate on
-                # is_echo — that flag is True throughout TTS playback so it
-                # would block barge-in entirely.
+                # Dual-pass barge-in: WebRTC stamps, Silero must agree to fire.
+                # SILERO_CONFIRM_THRESHOLD < SPEECH_START (0.5) so we fire
+                # before Silero would normally confirm a turn.
                 BARGE_IN_HOLD_MS = 200.0
+                CANDIDATE_TIMEOUT_MS = 400.0
+                SILERO_CONFIRM_THRESHOLD = 0.3
 
                 vad_state_now = pipeline.get_vad_state()
                 ai_audible = is_responding_ref["value"] or pipeline.is_ai_speaking()
 
-                speech_event = (
-                    vad_event is not None and vad_event.state == VADState.SPEECH_START
-                ) or vad_state_now == VADState.SPEAKING
+                # Only count WebRTC speech while AI is audible — otherwise the
+                # counter pre-arms during the user's own utterance and fires
+                # the moment AI starts talking.
+                speech_frames_in_chunk = fast_vad.speech_frames(audio_array)
+                fast_frame_ms = fast_vad.frame_ms
+                if not ai_audible:
+                    fast_speech_run_ms_ref["value"] = 0
+                elif speech_frames_in_chunk > 0:
+                    fast_speech_run_ms_ref["value"] += speech_frames_in_chunk * fast_frame_ms
+                else:
+                    fast_speech_run_ms_ref["value"] = 0
+                fast_speech_run_ms = fast_speech_run_ms_ref["value"]
 
+                # Stamp candidate on the first speech sub-frame during AI talk.
                 if (
                     ai_audible
+                    and fast_speech_run_ms > 0
                     and barge_in_candidate_ref["value"] is None
                     and not interrupt_event.is_set()
-                    and speech_event
                 ):
                     barge_in_candidate_ref["value"] = time.monotonic()
                     logger.info(
                         f"[Barge-in] Candidate stamped "
-                        f"(prob={prob:.2f}, vad_state={vad_state_now.value}, "
-                        f"is_responding={is_responding_ref['value']}, "
-                        f"ai_speaking={pipeline.is_ai_speaking()})"
-                    )
-                elif (
-                    speech_event
-                    and barge_in_candidate_ref["value"] is None
-                    and not interrupt_event.is_set()
-                    and vad_event is not None
-                    and vad_event.state == VADState.SPEECH_START
-                ):
-                    logger.info(
-                        f"[Barge-in] Speech start but gate skipped "
-                        f"(ai_audible={ai_audible}, "
-                        f"is_responding={is_responding_ref['value']}, "
-                        f"ai_speaking={pipeline.is_ai_speaking()})"
+                        f"(webrtc_run={fast_speech_run_ms}ms, "
+                        f"silero_prob={prob:.2f}, vad_state={vad_state_now.value})"
                     )
 
                 candidate_at = barge_in_candidate_ref["value"]
                 if candidate_at is not None and not interrupt_event.is_set():
                     elapsed_ms = (time.monotonic() - candidate_at) * 1000
-                    if vad_state_now == VADState.SPEAKING and elapsed_ms >= BARGE_IN_HOLD_MS:
+                    silero_says_speech = prob >= SILERO_CONFIRM_THRESHOLD
+                    webrtc_sustained = fast_speech_run_ms >= BARGE_IN_HOLD_MS
+
+                    if webrtc_sustained and silero_says_speech:
                         logger.info(
-                            f"[Barge-in] Confirmed after {elapsed_ms:.0f}ms "
-                            f"continuous speech (prob={prob:.2f}); interrupting"
+                            f"[Barge-in] Confirmed after {fast_speech_run_ms}ms "
+                            f"continuous WebRTC speech with Silero agreement "
+                            f"(silero_prob={prob:.2f} >= {SILERO_CONFIRM_THRESHOLD}); "
+                            f"interrupting"
                         )
                         interrupt_event.set()
                         barge_in_candidate_ref["value"] = None
-                    elif vad_state_now not in (VADState.SPEAKING, VADState.SPEECH_START):
+                    elif fast_speech_run_ms == 0 and elapsed_ms >= CANDIDATE_TIMEOUT_MS:
                         logger.info(
                             f"[Barge-in] Candidate dropped after {elapsed_ms:.0f}ms "
-                            f"(VAD={vad_state_now.value}, treated as backchannel)"
+                            f"with no continuous speech (treated as backchannel)"
                         )
                         barge_in_candidate_ref["value"] = None
+                    elif webrtc_sustained and not silero_says_speech and elapsed_ms >= CANDIDATE_TIMEOUT_MS:
+                        # Sustained WebRTC + no Silero = AI-audio bleed false positive.
+                        logger.info(
+                            f"[Barge-in] Candidate dropped: WebRTC sustained "
+                            f"{fast_speech_run_ms}ms but Silero rejected "
+                            f"(silero_prob={prob:.2f} < {SILERO_CONFIRM_THRESHOLD})"
+                        )
+                        barge_in_candidate_ref["value"] = None
+                        fast_speech_run_ms_ref["value"] = 0
 
                 current_state = pipeline.get_vad_state().value
                 if current_state != last_vad_state_ref["value"]:
@@ -561,10 +576,8 @@ async def voice_websocket(websocket: WebSocket) -> None:
                     )
                     last_vad_state_ref["value"] = current_state
 
-                # Streaming STT (Kyutai): the model handles end-of-utterance internally
-                # via causal streaming — no commit signal required from the route.
-
-                # Whisper is batch — local VAD decides when to close and transcribe.
+                # Batch STT: at SPEECH_END, transcribe the VAD-trimmed buffer
+                # directly (skips leading silence). Loop reopens for next turn.
                 if (
                     not stt_supports_streaming
                     and vad_event is not None
@@ -572,8 +585,10 @@ async def voice_websocket(websocket: WebSocket) -> None:
                     and len(vad_event.audio_buffer) > 0
                 ):
                     logger.info(f"[Batch STT] VAD endpoint reached ({vad_event.duration_ms:.0f}ms audio)")
-                    # Close to flush; transcript_collector loop reopens for next turn.
-                    await stt_session.close()
+                    if hasattr(stt_session, "transcribe_audio"):
+                        await stt_session.transcribe_audio(vad_event.audio_buffer)
+                    else:
+                        await stt_session.close()
         except WebSocketDisconnect:
             logger.info("WS disconnect in audio_receiver")
             stop_event.set()
@@ -581,10 +596,7 @@ async def voice_websocket(websocket: WebSocket) -> None:
             logger.error(f"audio_receiver error: {e}")
             stop_event.set()
 
-    # Semantic-turn-detection grace window: if a final transcript looks
-    # incomplete we hold it for SEMANTIC_GRACE_MS rather than dispatching to
-    # the LLM; if more audio arrives in that window the two transcripts are
-    # concatenated.
+    # Hold incomplete-looking finals for SEMANTIC_GRACE_MS in case more arrives.
     pending_text_ref: dict = {"value": ""}
     pending_flush_task_ref: dict = {"task": None}
 
@@ -643,8 +655,7 @@ async def voice_websocket(websocket: WebSocket) -> None:
                         if not text:
                             continue
 
-                        # Combine with any held-incomplete transcript so
-                        # "Hey can you" + "book a flight" → "Hey can you book a flight".
+                        # "Hey can you" + "book a flight" → "Hey can you book a flight"
                         combined = (
                             (pending_text_ref["value"] + " " + text).strip() if pending_text_ref["value"] else text
                         )
@@ -697,8 +708,6 @@ async def voice_websocket(websocket: WebSocket) -> None:
                                     )
                                     logger.info(f"[Thread Title] {thread_id} → {title!r}")
                                 except Exception as e:
-                                    # Non-fatal — leave the default title
-                                    # in place if the metadata update fails.
                                     logger.warning(f"Failed to set thread title: {e}")
                                     thread_title_set_ref["value"] = False
                 except StopAsyncIteration:
@@ -740,12 +749,8 @@ async def voice_websocket(websocket: WebSocket) -> None:
             full_response = ""
             first_sentence_emitted = False
 
-            # Schedule a filler phrase. Fires after FILLER_DELAY_S if the
-            # LLM hasn't produced a token yet — bridges the dead air during
-            # slow first-token latency. Cancelled when first token arrives
-            # OR when the turn ends (in finally). The filler shares the
-            # sentence_queue with real LLM output, so it plays first (FIFO)
-            # and the real response follows naturally after it finishes.
+            # Filler ("Hmm.") plays if LLM TTFT > FILLER_DELAY_S; cancelled on
+            # first token. Shares sentence_queue, so it plays FIFO before the real reply.
             async def _maybe_play_filler() -> None:
                 try:
                     await asyncio.sleep(FILLER_DELAY_S)
@@ -789,10 +794,7 @@ async def voice_websocket(websocket: WebSocket) -> None:
                                 turn_metrics["llm_first_token_at"] - turn_metrics["response_start_at"]
                             ) * 1000
                             logger.info(f"[Latency] LLM first token: {first_token_ms:.0f}ms")
-                            # Cancel pending filler so we don't queue "let me
-                            # think" right before the actual answer. If the
-                            # filler already fired (TTFT > FILLER_DELAY_S),
-                            # it plays first and the real response follows.
+                            # If filler already fired, it plays first and the real response follows.
                             filler_task.cancel()
 
                         buffer += llm_event["content"]
@@ -806,12 +808,7 @@ async def voice_websocket(websocket: WebSocket) -> None:
                         )
                         sentences, buffer = _split_sentences(buffer)
 
-                        # First-sentence early break: if no sentence yet but
-                        # the buffer already has a comma after enough words,
-                        # treat that comma as a chunk boundary so TTS starts
-                        # 200-500ms sooner. Only applies to the very first
-                        # chunk of a turn — subsequent sentences wait for
-                        # proper end-of-sentence punctuation.
+                        # First-sentence comma break: shave 200-500ms off TTS first-byte.
                         if not first_sentence_emitted and not sentences and len(buffer) >= 30 and "," in buffer:
                             comma_idx = buffer.find(",")
                             if comma_idx >= 20:
@@ -860,11 +857,8 @@ async def voice_websocket(websocket: WebSocket) -> None:
                     if clean_buffer:
                         await sentence_queue.put(clean_buffer)
             finally:
-                # Defensive cancel: if filler hasn't fired yet (LLM was fast,
-                # error occurred, or stream was cancelled), kill the task so
-                # it doesn't queue a stale "hmm" into the next turn.
                 filler_task.cancel()
-                # Sentinel signals end-of-response to TTS consumer.
+                # None sentinel signals end-of-response to tts_streamer.
                 await sentence_queue.put(None)
                 if interrupt_event.is_set():
                     pipeline.on_interrupt()
@@ -872,12 +866,9 @@ async def voice_websocket(websocket: WebSocket) -> None:
                         await websocket.send_json({"type": "interrupt"})
                     except Exception:
                         pass
-                # NOTE: is_responding_ref is NOT flipped here. It stays True
-                # until tts_streamer drains the queue (after processing the
-                # None sentinel above). That keeps the barge-in window armed
-                # through the entire audible response, not just the LLM-
-                # streaming window — which previously created a dead zone
-                # where TTS was still playing but interrupt was disabled.
+                # is_responding_ref stays True until tts_streamer processes the None
+                # sentinel — keeps barge-in armed through the entire audible response,
+                # not just the LLM-streaming window.
 
     async def tts_streamer() -> None:
         audio_info_sent = False
@@ -890,16 +881,9 @@ async def voice_websocket(websocket: WebSocket) -> None:
                 break
 
             if sentence is None:
-                # End-of-response marker. By this point the tts_streamer has
-                # processed every sentence queued by response_orchestrator
-                # (FIFO order — None is queued LAST in the orchestrator's
-                # finally block). Synthesize_stream calls were awaited inline,
-                # so all audio bytes for this turn have already been sent on
-                # the WS. Safe to mark the response as done.
+                # End-of-response sentinel: all audio for this turn has been sent.
                 audio_info_sent = False
                 is_responding_ref["value"] = False
-                # Drop any stale barge-in candidate from the just-completed
-                # response so it doesn't carry into the next turn.
                 barge_in_candidate_ref["value"] = None
                 continue
 
@@ -955,10 +939,7 @@ async def voice_websocket(websocket: WebSocket) -> None:
                         try:
                             await websocket.send_bytes(chunk["audio"].tobytes())
                         except (WebSocketDisconnect, RuntimeError) as e:
-                            # Client disconnected or WebSocket in bad state.
-                            # Break cleanly so the generator's interrupt path
-                            # (immediate AEC cleanup) runs instead of an
-                            # exception propagating mid-stream.
+                            # Break cleanly so the generator's interrupt path runs.
                             logger.info(f"[TTS] send_bytes failed, stopping stream: {e}")
                             client_gone = True
                             break
@@ -999,13 +980,8 @@ async def voice_websocket(websocket: WebSocket) -> None:
         except Exception:
             pass
         pipeline.on_interrupt()
-        # Per-connection pipeline shares STT/TTS with the singleton (loaded
-        # once at app startup, ~30s for Whisper). Calling pipeline.shutdown()
-        # here would unload the SHARED models and force the next connection
-        # to wait 30+s for them to reload — that was the cause of the
-        # "signal aborted" timeouts in the frontend. Only the VAD is
-        # per-connection state; it's released by garbage collection when the
-        # `pipeline` reference goes out of scope at the end of this handler.
+        # Do NOT call pipeline.shutdown() — STT/TTS are shared with the singleton
+        # (~30s reload cost). Only the VAD is per-connection and GC handles it.
         try:
             await agent.delete_thread(thread_id)
         except Exception:
@@ -1121,9 +1097,7 @@ async def get_voices() -> VoicesResponse:
         for v in tts_voices
     ]
 
-    # Append cloned voices for providers that support cloning. We render
-    # them at the END so the catalog ordering doesn't shift as users
-    # add/remove clones.
+    # Append clones at the end so catalog ordering is stable.
     if _supports_cloning(pipeline.tts):
         try:
             cloned = await pipeline.tts.get_cloned_voices()
@@ -1294,8 +1268,7 @@ async def narrate_text(
         logger.info(f"Narrate: voice={voice_id}, lang={lang}, len={len(clean_text)} (orig {len(request.text)})")
 
         if len(clean_text) > settings.TEXT_CHUNK_THRESHOLD:
-            # Strip markdown before chunking to avoid bad splits at headers
-            # (e.g., "### 2" shouldn't be a separate chunk)
+            # Strip markdown first so headers don't become separate chunks.
             text_for_chunking = _strip_markdown(clean_text)
             chunker = TextChunker(max_chunk_size=settings.TEXT_MAX_CHUNK_SIZE)
             chunks = chunker.chunk_by_sentences(text_for_chunking)
@@ -1462,10 +1435,8 @@ async def clone_voice(
     except Exception as e:
         msg = str(e)
         logger.error(f"Clone error: {msg}")
-        # Pocket TTS / Kyutai cloning weights are gated on HuggingFace.
-        # If the server is missing HF_TOKEN or hasn't accepted the model
-        # terms, the upstream lib raises a long descriptive error. Surface
-        # a concise, actionable 503 to the client instead of a raw 500.
+        # HF-gated weights: missing HF_TOKEN or unaccepted model terms raise a long
+        # error from upstream. Surface a concise 503 instead of a raw 500.
         if "voice cloning" in msg.lower() and "weights" in msg.lower():
             raise HTTPException(
                 status_code=503,

@@ -26,9 +26,11 @@ The two Python services have separate process boundaries. The backend talks to t
 class VoicePipeline:
     self._stt: BaseSTT       # Whisper
     self._tts: BaseTTS       # Pocket TTS or Kokoro
-    self._vad: SileroVAD     # speech / silence detector
+    self._vad: SileroVAD     # speech / silence detector (end-of-turn arm)
     self._aec: EchoCanceller # boolean flag for "is TTS playing"
 ```
+
+The voice WebSocket route also instantiates a per-connection `WebRTCVAD` as a fast-trigger arm for barge-in (`backend/services/vad/webrtc.py`). Silero is used for end-of-turn detection; WebRTC GMM is used to detect when the user has started speaking during AI playback.
 
 There are two entry points:
 
@@ -64,11 +66,32 @@ A 300 ms pre-roll buffer captures audio during `SILENCE` so the leading consonan
 
 ### Probability smoothing
 
-Raw VAD scores are noisy frame to frame. Scores are averaged over the last 5 frames (about 160 ms at 32 ms chunks) before thresholds are applied.
+Raw VAD scores are noisy frame to frame. Scores are averaged over the last 5 frames before thresholds are applied. The client sends 100 ms audio chunks, so the smoothing window is roughly 500 ms in practice. That is fine for end-of-turn detection (where false positives produce bad transcripts) but too slow for barge-in, which is why barge-in uses the separate WebRTC fast-trigger arm.
 
 ### Per-connection requirement
 
 Silero's underlying LSTM has internal state. Sharing one VAD instance between users would cross-talk their audio. That is why `voice_pipeline.create_voice_pipeline_for_connection()` instantiates a fresh `SileroVAD` per WebSocket.
+
+## WebRTC fast-trigger VAD (barge-in arm)
+
+`backend/services/vad/webrtc.py`
+
+A second VAD, instantiated per WebSocket, runs alongside Silero. It wraps the standard WebRTC GMM detector (`webrtcvad`) and produces a speech/non-speech verdict per 20 ms frame in microseconds. No neural network, no smoothing buffer, no warmup. The verdict is used only for barge-in detection.
+
+### Why two VADs?
+
+Silero's strength is precision: a low false-positive rate on end-of-turn. The price is the ~500 ms smoothing window described above. For barge-in, that window translates to a 600 to 800 ms delay between the user starting to speak and the AI being interrupted, which is well over the 200 to 300 ms threshold for a turn to feel natural.
+
+WebRTC's GMM has the opposite tradeoff: high recall, modest precision, near-zero latency. For barge-in this is the right tradeoff because the user has *explicitly* started speaking and the cost of an occasional false interrupt (the AI stops, the user repeats) is much lower than the cost of an unresponsive agent.
+
+### Barge-in flow
+
+1. WebRTC reports speech in any 20 ms sub-frame of the incoming 100 ms client chunk.
+2. The route stamps a barge-in candidate the first time this happens during AI playback.
+3. The continuous-speech run is tracked in 20 ms increments. When it reaches `BARGE_IN_HOLD_MS` (150 ms), the route fires the interrupt.
+4. If WebRTC drops speech and the candidate has been outstanding for `CANDIDATE_TIMEOUT_MS` (300 ms) without re-arming, the candidate is discarded (treated as a backchannel like a cough or "uh-huh").
+
+End-to-end barge-in latency is roughly 150 to 200 ms versus the ~600 to 800 ms of the Silero-only path. The article ["Voice Agent Barge-In: VAD Tuning 2026"](https://www.syncsoft.ai/en/blog/voice-agent-barge-in-vad-tuning-2026) describes the same dual-pass pattern.
 
 ## AEC (echo state)
 
@@ -186,10 +209,10 @@ ai_audible = is_responding_ref["value"] or pipeline.is_ai_speaking()
 
 ### Two-phase confirmation
 
-1. **Phase 1.** When `ai_audible` is True and Silero reports `SPEECH_START`, stamp a candidate timestamp.
-2. **Phase 2.** On every subsequent VAD frame, check `vad_state == SPEAKING and elapsed >= 200 ms`. If yes, `interrupt_event.set()`. If VAD drops back to silence or non-speaking before then, the candidate is discarded; it was a backchannel.
+1. **Phase 1.** When `ai_audible` is True and WebRTC reports speech in any sub-frame of the incoming chunk, stamp a candidate timestamp.
+2. **Phase 2.** Track continuous WebRTC speech in 20 ms increments. When the continuous run reaches `BARGE_IN_HOLD_MS` (150 ms), `interrupt_event.set()`. If WebRTC drops speech and the candidate is older than `CANDIDATE_TIMEOUT_MS` (300 ms) with no fresh continuous-speech evidence, the candidate is discarded; it was a backchannel.
 
-200 ms matches Pipecat / Vapi production defaults. Lower than that fires on coughs.
+150 ms is the article's recommended threshold for natural-feeling barge-in. The Silero state machine continues to run in parallel for end-of-turn detection but is not consulted by the barge-in path, so its smoothing window does not add latency here.
 
 ### Why the system does NOT gate on `is_echo`
 

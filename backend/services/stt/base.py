@@ -201,6 +201,10 @@ class BufferedBatchSession(StreamingSession):
     Buffers all audio sent via send_audio() and transcribes once close() is called.
     Emits a single final TranscriptEvent. This lets the route code use the same
     pattern for batch and streaming providers — the route just won't see partials.
+
+    For VAD-driven routes, prefer transcribe_audio(audio_buffer) to skip
+    transcribing leading silence: pass the VAD-trimmed speech buffer at
+    SPEECH_END instead of feeding every chunk through send_audio.
     """
 
     def __init__(
@@ -221,6 +225,19 @@ class BufferedBatchSession(StreamingSession):
         if self._closed:
             return
         self._buffer.append(audio)
+
+    async def transcribe_audio(self, audio: np.ndarray) -> None:
+        """Transcribe an explicit audio buffer and close the session."""
+        if self._closed:
+            return
+        if audio.dtype != np.float32:
+            audio_float = audio.astype(np.float32)
+            if np.max(np.abs(audio_float)) > 1.0:
+                audio_float = audio_float / 32768.0
+        else:
+            audio_float = audio
+        self._buffer = [audio_float]
+        await self.close()
 
     async def close(self) -> None:
         if self._closed:

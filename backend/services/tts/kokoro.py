@@ -1,19 +1,3 @@
-"""Kokoro-82M ONNX TTS — lightweight, fast, high-quality local TTS.
-
-Uses the `kokoro-onnx` package which loads an ONNX model + voices bin file
-via onnxruntime. No PyTorch dependency at inference time.
-
-Performance on CPU (M1/M2):
-  - First-byte latency:  ~200-400ms
-  - RTF:                  ~0.3 (processes ~3× faster than realtime)
-  - Memory:               ~300 MB (80 MB for int8 quantized model)
-
-No voice cloning — use Pocket TTS (TTS_PROVIDER=pocket_tts) for that.
-
-Set TTS_PROVIDER=kokoro in .env to enable. Model files auto-download from
-HuggingFace on first use.
-"""
-
 import asyncio
 from pathlib import Path
 from typing import AsyncIterator, List, Optional
