@@ -35,7 +35,7 @@ dependencies = [
     # LangGraph
     "langgraph-sdk>=0.1.0",
     # Database
-    "sqlalchemy>=2.0.0",
+    "sqlalchemy[asyncio]>=2.0.0",
     "asyncpg>=0.30.0",
     "psycopg2-binary>=2.9.0",
     "alembic>=1.13.0",
@@ -54,6 +54,7 @@ dev = [
     "pytest-cov>=6.0.0",
     "pytest-mock>=3.14.0",
     "ruff>=0.8.0",
+    "aiosqlite>=0.20.0",
 ]
 
 
