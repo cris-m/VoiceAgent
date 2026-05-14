@@ -36,7 +36,9 @@ Thumbs.db
 *.onnx
 *.bin
 *.safetensors
-models/
+# Anchored to the repo root only. `backend/models/` is the SQLAlchemy
+# package, not weights; we want that tracked.
+/models/
 .langgraph_api/
 
 # Node / Frontend
